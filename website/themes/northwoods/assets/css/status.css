@@ -1,0 +1,21 @@
+
+.battery-icon {
+    content: url("/svg/battery-charging-half.svg");
+    height: 14px;
+}
+
+.battery-status::after {
+    content:'45%';
+    height: 24px;
+}
+
+
+.weather-icon {
+    content: url("/svg/partly-sunny.svg");
+    height: 14px;
+}
+
+.weather::after {
+    content: '67°F';
+    height: 24px;
+}
