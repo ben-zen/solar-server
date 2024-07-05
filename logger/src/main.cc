@@ -22,7 +22,6 @@ std::map<std::string, std::string> generate_report()
         report.emplace("uptime", std::format("{:%T}", uptime));
     }
 
-
     report.emplace("temp", "65");
     report.emplace("voltage", "12.7");
     report.emplace("charging", "false");
