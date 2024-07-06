@@ -5,6 +5,7 @@
 #include <string>
 #include <sys/sysinfo.h>
 
+#include "weather.hh"
 
 std::map<std::string, std::string> generate_report()
 {
@@ -22,7 +23,7 @@ std::map<std::string, std::string> generate_report()
         report.emplace("uptime", std::format("{:%T}", uptime));
     }
 
-    report.emplace("temp", "65");
+    report.emplace("temp", get_weather_data());
     report.emplace("voltage", "12.7");
     report.emplace("charging", "false");
     
