@@ -61,15 +61,6 @@ size_t gather_response(void *buffer,
     return nmemb;
 }
 
-enum class overall_condition {
-    clear,
-    partly_cloudy,
-    cloudy,
-    misting,
-    raining,
-    snowing
-};
-
 overall_condition condition_from_string(const std::string &str) {
     static std::map<std::string, overall_condition> relation {
         {"Sunny", overall_condition::clear},
@@ -83,46 +74,10 @@ overall_condition condition_from_string(const std::string &str) {
 
     return relation[str];
 }
-struct daytime_forecast {
-    std::string timeframe;
-    overall_condition condition;
-    float temperature;
 
-    std::string formatted() {
-        return std::format("{}, {}, {}", timeframe, (int)condition, temperature);
-    }
-};
-
-std::string get_weather_data()
+std::vector<daytime_forecast> load_forecast(const std::string &forecast_response)
 {
-    CURL *curl = curl_easy_init();
-    if (!curl)
-    {
-        std::cerr << "Error setting up curl." << std::endl;
-        return "";
-    }
-    std::string forecast_str{};
-    CURLcode res;
-    curl_easy_setopt(curl, CURLOPT_USERAGENT, "solar-website vNone, https://ben.zen.sdf.org");
-    curl_easy_setopt(curl, CURLOPT_ACCEPT_ENCODING, "application/geo+json");
-    curl_easy_setopt(curl,
-                     CURLOPT_WRITEFUNCTION, 
-                     gather_response);
-    curl_easy_setopt(curl,
-                     CURLOPT_WRITEDATA,
-                     &forecast_str);
-    auto forecast_url = get_forecast_url();
-    curl_easy_setopt(curl, CURLOPT_URL, forecast_url.c_str());
-    std::cout << "Set URL to: " << forecast_url << std::endl;
-    res = curl_easy_perform(curl);
-    if (res != CURLE_OK)
-    {
-        std::cerr << "Error calling CURL to load weather: " << res << std::endl;
-        return "";
-    }
-
-    // We got JSON. Now let's extract something from it.
-    json forecast_data = json::parse(forecast_str);
+    json forecast_data = json::parse(forecast_response);
     auto forecast = forecast_data["properties"]["periods"];
 
     auto forecast_iter = forecast.cbegin();
@@ -153,11 +108,41 @@ std::string get_weather_data()
         forecast_iter = ++forecast_local;
     } while (daytime_forecasts.size() < 3 && forecast_iter != forecast.cend());
 
-    for (auto &&f : daytime_forecasts)
+    return daytime_forecasts;
+}
+
+std::string weather_loader::get_weather_data()
+{
+    return "69";
+}
+
+weather_loader::weather_loader(curl_handle &curl) : m_curl(curl) {
+    // Also needs the location of the station.
+    curl_easy_setopt(m_curl, CURLOPT_USERAGENT, "solar-website vNone, https://ben.zen.sdf.org");
+    curl_easy_setopt(m_curl, CURLOPT_ACCEPT_ENCODING, "application/geo+json");
+    curl_easy_setopt(m_curl,
+                     CURLOPT_WRITEFUNCTION, 
+                     gather_response);
+}
+
+std::vector<daytime_forecast> weather_loader::get_forecast() {
+    CURLcode res;
+    std::string forecast_str{};
+    auto forecast_url = get_forecast_url();
+    curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, &forecast_str);
+    curl_easy_setopt(m_curl, CURLOPT_URL, forecast_url.c_str());
+    std::cout << "Set URL to: " << forecast_url << std::endl;
+    res = curl_easy_perform(m_curl);
+    if (res != CURLE_OK)
     {
-        std::cout << std::format("{}, {}, {}", (int)f.condition, f.temperature, f.timeframe) << "," << std::endl;
+        std::cerr << "Error calling CURL to load weather: " << res << std::endl;
+        return {};
     }
 
-    curl_easy_cleanup(curl);
-    return "69";
+    // We got JSON. Now let's extract something from it.
+    auto forecast = load_forecast(forecast_str);
+
+    curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, nullptr);
+
+    return forecast;
 }
