@@ -12,6 +12,33 @@
 
 using json = nlohmann::json;
 
+temperature_unit temperature_unit_from_string(const std::string &str) {
+    if (str.compare("wmoUnit:degC") == 0) {
+        return temperature_unit::celsius;
+    } else if (str.compare("wmoUnit:degF") == 0) {
+        return temperature_unit::fahrenheit;
+    }
+
+    throw new std::domain_error(std::format("Invalid unit string for temperature: {}", str));
+}
+
+temperature_unit temperature_unit_from_shortcode(const std::string &str) {
+    if (str.compare("C") == 0) {
+        return temperature_unit::celsius;
+    } else if (str.compare("F") == 0) {
+        return temperature_unit::fahrenheit;
+    }
+
+    throw new std::domain_error(std::format("Unknown short temp code: {}", str));
+}
+
+temperature read_temperature_from_json(json &data) {
+    temperature_unit unit{temperature_unit_from_string(data["unitCode"].template get<std::string>())};
+    float value{data["value"].template get<float>()};
+
+    return {unit, value};
+}
+
 std::string get_observation_url()
 {
     // For testing I'm using the location of the space needle.
@@ -102,7 +129,8 @@ std::vector<daytime_forecast> load_forecast(const std::string &forecast_response
         daytime_forecasts.emplace_back(forecast_local->at("startTime").template get<std::string>(),
                                        condition_from_string(
                                             forecast_local->at("shortForecast").template get<std::string>()),
-                                       forecast_local->at("temperature").template get<float>());
+                                       temperature{temperature_unit_from_shortcode(forecast_local->at("temperatureUnit").template get<std::string>()),
+                                        forecast_local->at("temperature").template get<float>()});
 
         // skip past the current 
         forecast_iter = ++forecast_local;
@@ -150,13 +178,25 @@ daytime_forecast weather_loader::get_current_observation() {
     res = nws_api_call(observation_url, &observation_str);
     if (res != CURLE_OK)
     {
+        std::cerr << "CURL error. URL: " << observation_url << " Code: " << res << std::endl;
         return {};
     }
 
+    daytime_forecast observation{};
     json observation_data = json::parse(observation_str);
+    try
+    {
+        observation.condition = condition_from_string(observation_data["properties"]["textDescription"].template get<std::string>());
+        observation.temp = read_temperature_from_json(observation_data["properties"]["temperature"]);
+        observation.timeframe = observation_data["properties"]["timestamp"].template get<std::string>();
+    }
+    catch(const std::exception& e)
+    {
+        std::cerr << e.what() << '\n';
+        return {};
+    }
     
-
-    return {};
+    return observation;
 }
 
 std::vector<daytime_forecast> weather_loader::get_forecast() {
@@ -166,6 +206,7 @@ std::vector<daytime_forecast> weather_loader::get_forecast() {
     res = nws_api_call(forecast_url, &forecast_str);
     if (res != CURLE_OK)
     {
+        std::cerr << "CURL error. URL: " << forecast_url << " Code: " << res << std::endl;
         return {};
     }
 
