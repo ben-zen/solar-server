@@ -6,6 +6,7 @@
 #include <curl/curl.h>
 
 #include "curl.hh"
+#include "unit.hh"
 
 enum class overall_condition {
     clear,
@@ -58,10 +59,10 @@ struct std::formatter<temperature_unit> : std::formatter<std::string_view> {
   auto format(const temperature_unit unit, Context &context) const -> auto {
     switch (unit) {
       case temperature_unit::celsius:
-        return formatter<std::string_view>::format("C", context);
+        return formatter<std::string_view>::format("°C", context);
 
       case temperature_unit::fahrenheit:
-        return formatter<std::string_view>::format("F", context);
+        return formatter<std::string_view>::format("°F", context);
     }
 
     // Unreachable
@@ -69,25 +70,18 @@ struct std::formatter<temperature_unit> : std::formatter<std::string_view> {
   }
 };
 
-struct temperature {
-  temperature_unit unit;
-  float value;
-};
+using temperature = dimensioned_value<float, temperature_unit>;
 
 struct daytime_forecast {
     std::string timeframe;
     overall_condition condition;
     temperature temp;
-
-    std::string formatted() {
-        return std::format("{}, {}, {} °{}", timeframe, (int)condition, temp.value, temp.unit);
-    }
 };
 
 class weather_loader {
 public:
   weather_loader(curl_handle &curl);
-  std::string get_weather_data();
+
   std::vector<daytime_forecast> get_forecast();
   daytime_forecast get_current_observation();
 

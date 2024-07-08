@@ -3,7 +3,6 @@
 #include <format>
 #include <iostream>
 #include <string>
-#include <sstream>
 
 #include <curl/curl.h>
 
@@ -36,7 +35,7 @@ temperature read_temperature_from_json(json &data) {
     temperature_unit unit{temperature_unit_from_string(data["unitCode"].template get<std::string>())};
     float value{data["value"].template get<float>()};
 
-    return {unit, value};
+    return {value, unit};
 }
 
 std::string get_observation_url()
@@ -71,13 +70,10 @@ size_t gather_response(void *buffer,
                        size_t nmemb,
                        void *userp)
 {
-    std::string_view buffer_data{(const char*)buffer, nmemb};
     std::string *response = (std::string *)userp;
 
-    std::cout << "Received response chunk, size: " << nmemb << " bytes:" << std::endl
-              << buffer_data << std::endl;
     try {
-        response->append(buffer_data);
+        response->append((char *)buffer, nmemb);
     } catch (std::exception &e)
     {
         std::cerr << "Error appending data: " << e.what() << std::endl;
@@ -126,11 +122,12 @@ std::vector<daytime_forecast> load_forecast(const std::string &forecast_response
 
         std::cout << "forecast found: " << *forecast_iter << std::endl;
 
-        daytime_forecasts.emplace_back(forecast_local->at("startTime").template get<std::string>(),
-                                       condition_from_string(
-                                            forecast_local->at("shortForecast").template get<std::string>()),
-                                       temperature{temperature_unit_from_shortcode(forecast_local->at("temperatureUnit").template get<std::string>()),
-                                        forecast_local->at("temperature").template get<float>()});
+        daytime_forecasts.emplace_back(
+            forecast_local->at("startTime").template get<std::string>(),
+            condition_from_string(forecast_local->at("shortForecast").template get<std::string>()),
+            temperature{forecast_local->at("temperature").template get<float>(),
+                        temperature_unit_from_shortcode(
+                            forecast_local->at("temperatureUnit").template get<std::string>())});
 
         // skip past the current 
         forecast_iter = ++forecast_local;
@@ -155,11 +152,6 @@ CURLcode weather_loader::nws_api_call(std::string &url_str, std::string *buffer)
     // Need to figure out how to handle cleaning up CURLOPT_WRITEDATA.
 
     return res;
-}
-
-std::string weather_loader::get_weather_data()
-{
-    return "69";
 }
 
 weather_loader::weather_loader(curl_handle &curl) : m_curl(curl) {

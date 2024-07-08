@@ -8,6 +8,12 @@
 #include "curl.hh"
 #include "weather.hh"
 
+struct status_report {
+    daytime_forecast current_weather;
+    std::vector<daytime_forecast> upcoming_days;
+    
+};
+
 std::map<std::string, std::string> generate_report(curl_handle &curl)
 {
     std::map<std::string, std::string> report{};
@@ -30,16 +36,19 @@ std::map<std::string, std::string> generate_report(curl_handle &curl)
 
     for (auto &&f : forecast)
     {
-        std::cout << std::format("{}, {} °{}, {}", f.condition, f.temp.value, f.temp.unit, f.timeframe) << "," << std::endl;
+        std::cout << std::format("{}, {}, {}", f.condition, f.temp, f.timeframe) << "," << std::endl;
     }
 
     auto observation = weather.get_current_observation();
 
-    std::cout << std::format("{}, {} °{}, {}", observation.condition, observation.temp.value, observation.temp.unit, observation.timeframe) << std::endl;
+    std::cout << std::format("{}, {}, {}", observation.condition, observation.temp, observation.timeframe) << std::endl;
 
-    report.emplace("temp", std::format("{} °{}", observation.temp.value, observation.temp.unit));
+    report.emplace("temp", std::format("{}", observation.temp));
 
+    // battery statistics
     report.emplace("voltage", "12.7");
+
+    // solar array details
     report.emplace("charging", "false");
     
     return report;
