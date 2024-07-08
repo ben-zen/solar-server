@@ -35,6 +35,10 @@ std::map<std::string, std::string> generate_report(curl_handle &curl)
         std::cout << std::format("{}, {}, {}", (int)f.condition, f.temperature, f.timeframe) << "," << std::endl;
     }
 
+    auto observation = weather.get_current_observation();
+
+    std::cout << std::format("{}, {}, {}", (int)observation.condition, observation.temperature, observation.timeframe) << std::endl;
+
     report.emplace("voltage", "12.7");
     report.emplace("charging", "false");
     

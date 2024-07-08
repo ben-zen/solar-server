@@ -111,6 +111,24 @@ std::vector<daytime_forecast> load_forecast(const std::string &forecast_response
     return daytime_forecasts;
 }
 
+CURLcode weather_loader::nws_api_call(std::string &url_str, std::string *buffer) {
+    CURLcode res;
+
+    curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, buffer);
+    curl_easy_setopt(m_curl, CURLOPT_URL, url_str.c_str());
+    std::cout << "Set URL to: " << url_str << std::endl;
+    res = curl_easy_perform(m_curl);
+    if (res != CURLE_OK)
+    {
+        std::cerr << "Error calling CURL to load weather: " << res << std::endl;
+        return res;
+    }
+
+    // Need to figure out how to handle cleaning up CURLOPT_WRITEDATA.
+
+    return res;
+}
+
 std::string weather_loader::get_weather_data()
 {
     return "69";
@@ -125,24 +143,34 @@ weather_loader::weather_loader(curl_handle &curl) : m_curl(curl) {
                      gather_response);
 }
 
+daytime_forecast weather_loader::get_current_observation() {
+    CURLcode res;
+    std::string observation_str{};
+    auto observation_url = get_observation_url();
+    res = nws_api_call(observation_url, &observation_str);
+    if (res != CURLE_OK)
+    {
+        return {};
+    }
+
+    json observation_data = json::parse(observation_str);
+    
+
+    return {};
+}
+
 std::vector<daytime_forecast> weather_loader::get_forecast() {
     CURLcode res;
     std::string forecast_str{};
     auto forecast_url = get_forecast_url();
-    curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, &forecast_str);
-    curl_easy_setopt(m_curl, CURLOPT_URL, forecast_url.c_str());
-    std::cout << "Set URL to: " << forecast_url << std::endl;
-    res = curl_easy_perform(m_curl);
+    res = nws_api_call(forecast_url, &forecast_str);
     if (res != CURLE_OK)
     {
-        std::cerr << "Error calling CURL to load weather: " << res << std::endl;
         return {};
     }
 
     // We got JSON. Now let's extract something from it.
     auto forecast = load_forecast(forecast_str);
-
-    curl_easy_setopt(m_curl, CURLOPT_WRITEDATA, nullptr);
 
     return forecast;
 }
