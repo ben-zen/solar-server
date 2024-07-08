@@ -11,12 +11,43 @@
 struct status_report {
     daytime_forecast current_weather;
     std::vector<daytime_forecast> upcoming_days;
-    
+    std::chrono::seconds uptime;
+    voltage<float> battery_voltage;
+    wattage<float> current_wattage;
+    wattage<float> charging_wattage;
+    bool is_charging;
 };
 
-std::map<std::string, std::string> generate_report(curl_handle &curl)
+std::string report_format{ 
+};
+
+template <>
+struct std::formatter<status_report> : std::formatter<std::string_view> {
+    template <typename Context>
+    auto format(const status_report &report, Context &ctx) const {
+        return format_to(ctx.out(),
+R"(report:
+  current weather: {}
+  upcoming daytime weather: {}
+  uptime: {:%T}
+  battery voltage: {}
+  current usage: {}
+  charging wattage: {}
+  is charging: {}
+)",
+                         report.current_weather,
+                         report.upcoming_days,
+                         report.uptime,
+                         report.battery_voltage,
+                         report.current_wattage,
+                         report.charging_wattage,
+                         report.is_charging);
+    }
+};
+
+status_report generate_report(curl_handle &curl)
 {
-    std::map<std::string, std::string> report{};
+    status_report report{};
     struct sysinfo s_info{};
 
     int err = sysinfo(&s_info);
@@ -27,7 +58,7 @@ std::map<std::string, std::string> generate_report(curl_handle &curl)
     else
     {
         std::chrono::seconds uptime{s_info.uptime};
-        report.emplace("uptime", std::format("{:%T}", uptime));
+        report.uptime = std::move(uptime);
     }
 
     weather_loader weather{curl};
@@ -39,17 +70,19 @@ std::map<std::string, std::string> generate_report(curl_handle &curl)
         std::cout << std::format("{}, {}, {}", f.condition, f.temp, f.timeframe) << "," << std::endl;
     }
 
+    report.upcoming_days = std::move(forecast);
+
     auto observation = weather.get_current_observation();
 
     std::cout << std::format("{}, {}, {}", observation.condition, observation.temp, observation.timeframe) << std::endl;
 
-    report.emplace("temp", std::format("{}", observation.temp));
+    report.current_weather = observation;
 
     // battery statistics
-    report.emplace("voltage", "12.7");
+    report.battery_voltage = voltage<float>(12.8);
 
     // solar array details
-    report.emplace("charging", "false");
+    report.is_charging = false;
     
     return report;
 }
@@ -60,8 +93,5 @@ int main(int argc, char **argv)
 
     auto report = generate_report(curl);
 
-    for (auto &&row : report)
-    {
-        std::cout << row.first << ": " << row.second << std::endl;
-    }
+    std::cout << std::format("{}", report) << std::endl;
 }

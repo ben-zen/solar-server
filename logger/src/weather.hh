@@ -20,7 +20,7 @@ enum class overall_condition {
 template<>
 struct std::formatter<overall_condition> : std::formatter<std::string_view> {
   template <typename Context>
-  auto format(const overall_condition condition, Context &context) const -> auto {
+  auto format(const overall_condition &condition, Context &context) const -> auto {
     switch (condition) {
     case overall_condition::clear:
       return formatter<std::string_view>::format("clear", context);
@@ -56,7 +56,7 @@ struct std::formatter<temperature_unit> : std::formatter<std::string_view> {
   // Bonus to make this support long and short forms.
 
   template <typename Context>
-  auto format(const temperature_unit unit, Context &context) const -> auto {
+  auto format(const temperature_unit &unit, Context &context) const -> auto {
     switch (unit) {
       case temperature_unit::celsius:
         return formatter<std::string_view>::format("°C", context);
@@ -76,6 +76,30 @@ struct daytime_forecast {
     std::string timeframe;
     overall_condition condition;
     temperature temp;
+};
+
+template<>
+struct std::formatter<daytime_forecast> : std::formatter<std::string_view> {
+  template <typename Context>
+  auto format(const daytime_forecast &fc, Context &ctx) const {
+    return format_to(ctx.out(), "{}, {}, {}", fc.timeframe, fc.condition, fc.temp);
+  }
+};
+
+template <>
+struct std::formatter<std::vector<daytime_forecast>> : std::formatter<std::string_view> {
+  template <typename Context>
+  auto format(const std::vector<daytime_forecast> &fcx, Context &ctx) const {
+    format_to(ctx.out(), "[");
+    auto iter = fcx.cbegin();
+    while (iter != fcx.cend()) {
+      format_to(ctx.out(),
+                "{{ {} }}{}",
+                *iter,
+                ((++iter != fcx.cend()) ? ", " : ""));
+    }
+    return format_to(ctx.out(), "]");
+  }
 };
 
 class weather_loader {
