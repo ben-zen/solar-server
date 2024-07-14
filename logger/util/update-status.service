@@ -1,0 +1,8 @@
+[Unit]
+Description = Solar site status line updater
+Wants = network-online.target
+After = network-online.target
+
+[Service]
+Type = oneshot
+ExecStart = /bin/sh /srv/logger/update-status.sh

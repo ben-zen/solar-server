@@ -8,6 +8,8 @@
 #include "curl.hh"
 #include "unit.hh"
 
+#include "include_ext/json.hpp"
+
 enum class overall_condition {
     clear,
     partly_cloudy,

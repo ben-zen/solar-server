@@ -2,6 +2,10 @@
 #include "transform.hh"
 #include "weather.hh"
 
+#include "include_ext/json.hpp"
+
+using json = nlohmann::json;
+
 /* example CSS:
 
 .battery-icon {
@@ -66,8 +70,13 @@ int report_to_css(const status_report &report, std::ostream &out) {
                        report.upcoming_days[1].temp) << std::endl
         << std::format(R"(.battery-icon {{ content: url("/svg/{}"); height: 14px; }})",
                        report.is_charging ? "battery-charging-half.svg" : "battery-half.svg") << std::endl
-        << std::format(R"(.battery-status::after {{ content: "{}"; }})", report.battery_voltage)
+        << std::format(R"(.battery-status::after {{ content: "{}"; }})", report.battery_voltage) << std::endl
+        << std::format(R"(.uptime::after {{ content: "{:%T}"; }})", report.uptime)
         << std::endl;
 
+    return 0;
+}
+
+int report_to_json(const status_report &/* report */, std::ostream &/* out */) {
     return 0;
 }

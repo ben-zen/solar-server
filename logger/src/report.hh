@@ -9,6 +9,8 @@
 #include "unit.hh"
 #include "weather.hh"
 
+#include "include_ext/json.hpp"
+
 struct status_report {
     daytime_forecast current_weather;
     std::vector<daytime_forecast> upcoming_days;

@@ -1,21 +1,9 @@
-
-.battery-icon {
-    content: url("/svg/battery-charging-half.svg");
-    height: 14px;
-}
-
-.battery-status::after {
-    content:'45%';
-    height: 24px;
-}
-
-
-.weather-icon {
-    content: url("/svg/partly-sunny.svg");
-    height: 14px;
-}
-
-.weather::after {
-    content: '67°F';
-    height: 24px;
-}
+.weather-icon { content: url("/svg/sunny.svg"); height: 14px; }
+.weather::after { content: "20 °C"; height: 24px; }
+.forecast-tomorrow-icon { content: url("/svg/sunny.svg"); height: 14px; }
+.forecast-tomorrow::after { content: "85 °F"; height: 24px; }
+.forecast-overmorrow-icon { content: url("/svg/sunny.svg"); height: 14px; }
+.forecast-overmorrow::after { content: "83 °F"; height: 24px; }
+.battery-icon { content: url("/svg/battery-half.svg"); height: 14px; }
+.battery-status::after { content: "12.8 V"; }
+.uptime::after { content: "65716s"; }
