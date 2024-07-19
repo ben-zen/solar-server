@@ -4,7 +4,15 @@ Drawing direct inspiration from the way [LOW←TECH MAGAZINE](https://solar.lowt
 
 ## Building the logger
 
-Ensure you've got `libcurl` and `libcurl-devel` packages installed (for Fedora, etc.)--on other platforms, whatever the headers package is will be the correct choice.
+### Dependencies
+
+#### Fedora
+
+`libcurl`, `libcurl-devel`, `fmt`, `fmt-devel`
+
+#### Debian
+
+`libcurl4`, `libcurl4-dev`, `libfmt`, `libfmt-dev`
 
 ## Deploying the logger
 
