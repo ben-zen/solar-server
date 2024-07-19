@@ -1,10 +1,10 @@
 #include <algorithm>
 #include <exception>
-#include <format>
 #include <iostream>
 #include <string>
 
 #include <curl/curl.h>
+#include <fmt/format.h>
 
 #include "include_ext/json.hpp"
 #include "weather.hh"
@@ -18,7 +18,7 @@ temperature_unit temperature_unit_from_string(const std::string &str) {
         return temperature_unit::fahrenheit;
     }
 
-    throw new std::domain_error(std::format("Invalid unit string for temperature: {}", str));
+    throw new std::domain_error(fmt::format("Invalid unit string for temperature: {}", str));
 }
 
 temperature_unit temperature_unit_from_shortcode(const std::string &str) {
@@ -28,7 +28,7 @@ temperature_unit temperature_unit_from_shortcode(const std::string &str) {
         return temperature_unit::fahrenheit;
     }
 
-    throw new std::domain_error(std::format("Unknown short temp code: {}", str));
+    throw new std::domain_error(fmt::format("Unknown short temp code: {}", str));
 }
 
 temperature read_temperature_from_json(json &data) {
@@ -90,9 +90,9 @@ overall_condition condition_from_string(const std::string &str) {
         {"Clear", overall_condition::clear},
     };
 
-    if (!relation.contains(str))
+    if (relation.find(str) == relation.end())
     {
-        throw new std::domain_error {std::format("incorrect condition supplied: {}", str)};
+        throw new std::domain_error {fmt::format("incorrect condition supplied: {}", str)};
     }
 
     return relation[str];

@@ -1,7 +1,8 @@
 #pragma once
 
-#include <format>
 #include <type_traits>
+
+#include <fmt/format.h>
 
 template <typename T>
 concept Number = std::is_arithmetic_v<T>;

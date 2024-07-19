@@ -2,13 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 #include <chrono>
-#include <format>
 #include <iostream>
 #include <ranges>
 #include <string>
 
 #include <unistd.h>
 
+#include <fmt/chrono.h>
+#include <fmt/format.h>
 #include <json.hpp>
 #include <argparse.hpp>
 
@@ -26,7 +27,7 @@ int format_entry(const std::string &author,
     
     json front_matter{
         {"params", json{{"author", author},{"location", location}}},
-        {"time", std::format("{:%F, %T}", timestamp)}
+        {"time", fmt::format("{:%F, %T}", timestamp)}
     };
 
     output << front_matter << std::endl << std::endl << message << std::endl;
