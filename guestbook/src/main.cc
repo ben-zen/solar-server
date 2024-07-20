@@ -6,6 +6,7 @@
 #include <ranges>
 #include <string>
 
+#include <strings.h>
 #include <unistd.h>
 
 #include <fmt/chrono.h>
@@ -34,6 +35,18 @@ int format_entry(const std::string &author,
     output << front_matter << std::endl << std::endl << message << std::endl;
 
     return 0;
+}
+
+std::map<std::string, std::string> get_env_vars() {
+    std::map<std::string, std::string> vars{};
+    char **c_env = environ;
+    while (*c_env != nullptr) {
+        auto *separator = strchr(*c_env, '=');
+        vars.emplace(std::string{*c_env, separator}, std::string{(separator + 1)});
+        c_env++;
+    }
+
+    return vars;
 }
 
 int main(int argc, char **argv) {
@@ -69,16 +82,9 @@ int main(int argc, char **argv) {
         std::exit(1);
     }
 
-
-
     err << "Environment variables:" << std::endl;
-    for(char **env_var = environ; *env_var != nullptr; env_var++)
-    {
-        auto env_value = std::getenv(*env_var);
-        err << '\t' << std::string{*env_var} << ": "
-                  << ((env_value != nullptr) ? env_value : "NULL") << std::endl;
-    }
-    err << std::endl;
+    auto env_vars = get_env_vars();
+    std::cout << fmt::format("{}", fmt::join(env_vars, "\n")) << std::endl << std::endl;
 
     if (argc > 1)
     {
