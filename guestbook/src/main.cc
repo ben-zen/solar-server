@@ -49,6 +49,8 @@ std::map<std::string, std::string> get_env_vars() {
     return vars;
 }
 
+const char *http_content_type{"CONTENT_TYPE"};
+
 int main(int argc, char **argv) {
 
     auto &err = std::cout;
@@ -111,6 +113,11 @@ int main(int argc, char **argv) {
     std::cin >> content;
 
     err << content << std::endl;
+
+    if (env_vars.contains(http_content_type) && env_vars[http_content_type].compare("application/x-www-form-urlencoded") == 0)
+    {
+        err << "Parse input into a useful structure." << std::endl;
+    }
 
     std::exit(0);
 }
