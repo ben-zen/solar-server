@@ -10,6 +10,7 @@
 
 #include <fmt/chrono.h>
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <json.hpp>
 #include <argparse.hpp>
 
@@ -50,6 +51,10 @@ int main(int argc, char **argv) {
 
     // err << "Running as CGI. Continue." << std::endl;
 
+    std::vector<const char*> arg_strs{argv, argv + argc};
+
+    std::cout << fmt::format("{}", arg_strs) << std::endl << std::endl;
+
     argparse::ArgumentParser arg_parser{"guestbook", "0.1.0"};
     arg_parser.add_argument("--author").help("The author of the post");
     arg_parser.add_argument<std::string>("--location").help("The author's affiliation or original location");
@@ -75,18 +80,31 @@ int main(int argc, char **argv) {
     }
     err << std::endl;
 
-    try {
-        author = arg_parser.get<std::string>("--author");
-        location = arg_parser.get<std::string>("--location");
-        message = arg_parser.get<std::string>("--message");
-    } catch (const std::exception &e) {
-        std::cerr << "Exception reading variables: " << e.what() << std::endl;
-        std::exit(2);
+    if (argc > 1)
+    {
+        try {
+            author = arg_parser.get<std::string>("--author");
+            location = arg_parser.get<std::string>("--location");
+            message = arg_parser.get<std::string>("--message");
+            
+            format_entry(author, location, message, std::cout);
+            
+            err << "If the message is incomplete, try wrapping it in quotes!" << std::endl << std::endl;
+
+            std::exit(0);
+        } catch (const std::exception &e) {
+            std::cerr << "Exception reading variables: " << e.what() << std::endl;
+            std::exit(2);
+        }
     }
 
-    format_entry(author, location, message, std::cout);
+    err << "Not using arguments, trying std::cin" << std::endl;
 
-    err << "If the message is incomplete, try wrapping it in quotes!" << std::endl;
+    std::string content{};
+
+    std::cin >> content;
+
+    err << content << std::endl;
 
     std::exit(0);
 }
