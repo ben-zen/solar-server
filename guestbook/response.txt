@@ -1,0 +1,36 @@
+["/usr/lib/cgi-bin/guestbook"]
+
+Environment variables:
+("CONTENT_LENGTH", "124")
+("CONTENT_TYPE", "application/x-www-form-urlencoded")
+("DOCUMENT_ROOT", "/usr/lib/cgi-bin/")
+("GATEWAY_INTERFACE", "CGI/1.1")
+("HTTP_ACCEPT", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
+("HTTP_ACCEPT_ENCODING", "gzip, deflate")
+("HTTP_ACCEPT_LANGUAGE", "en-US,en;q=0.9,fr;q=0.8,fr-CA;q=0.7,fr-FR;q=0.6")
+("HTTP_CACHE_CONTROL", "max-age=0")
+("HTTP_CONNECTION", "keep-alive")
+("HTTP_CONTENT_LENGTH", "124")
+("HTTP_HOST", "192.168.0.34")
+("HTTP_ORIGIN", "http://192.168.0.34")
+("HTTP_REFERER", "http://192.168.0.34/")
+("HTTP_UPGRADE_INSECURE_REQUESTS", "1")
+("HTTP_USER_AGENT", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36 Edg/126.0.0.0")
+("QUERY_STRING", "")
+("REDIRECT_STATUS", "200")
+("REMOTE_ADDR", "192.168.0.5")
+("REMOTE_PORT", "51765")
+("REQUEST_METHOD", "POST")
+("REQUEST_SCHEME", "http")
+("REQUEST_URI", "/cgi-bin/guestbook")
+("SCRIPT_FILENAME", "/usr/lib/cgi-bin/guestbook")
+("SCRIPT_NAME", "/cgi-bin/guestbook")
+("SERVER_ADDR", "192.168.0.34")
+("SERVER_NAME", "192.168.0.34")
+("SERVER_PORT", "80")
+("SERVER_PROTOCOL", "HTTP/1.1")
+("SERVER_SOFTWARE", "lighttpd/1.4.69")
+
+Not using arguments, trying std::cin
+name=test&location=place&message=testing+a+test+string+that%27s+longer.+Long+enough.%0D%0A%0D%0AThat+has+some+returns+in+it.
+Parse input into a useful structure.
