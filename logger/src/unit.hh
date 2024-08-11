@@ -26,10 +26,10 @@ struct dimensioned_value {
 };
 
 template<Number V, typename U>
-struct std::formatter<dimensioned_value<V, U>> : std::formatter<std::string_view> {
+struct fmt::formatter<dimensioned_value<V, U>> : fmt::formatter<std::string_view> {
   template <typename Context>
   auto format(const dimensioned_value<V, U> &value, Context &ctx) const {
-    return format_to(ctx.out(), "{} {}", value.value, value.unit);
+    return fmt::format_to(ctx.out(), "{} {}", value.value, value.unit);
   }
 };
 
@@ -37,18 +37,18 @@ struct volts {};
 struct watts {};
 
 template<>
-struct std::formatter<volts> : std::formatter<std::string_view> {
+struct fmt::formatter<volts> : fmt::formatter<std::string_view> {
     template <typename Context>
     auto format(const volts &v, Context &ctx) const {
-        return format_to(ctx.out(), "V");
+        return fmt::formatter<std::string_view>::format("V", ctx);
     }
 };
 
 template<>
-struct std::formatter<watts> : std::formatter<std::string_view> {
+struct fmt::formatter<watts> : fmt::formatter<std::string_view> {
     template <typename Context>
     auto format(const watts &w, Context &ctx) const {
-        return format_to(ctx.out(), "W");
+        return fmt::formatter<std::string_view>::format("W", ctx);
     }
 };
 

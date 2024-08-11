@@ -1,6 +1,6 @@
 
 #include <filesystem>
-#include <format>
+#include <fmt/format.h>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -26,6 +26,6 @@ int main(int argc, char **argv)
     std::fstream out_file{destination, std::ios::out | std::ios::trunc};
     
     auto report = generate_report(curl);
-    std::cout << std::format("{}", report) << std::endl;
+    std::cout << fmt::format("{}", report) << std::endl;
     report_to_css(report, out_file);
 }

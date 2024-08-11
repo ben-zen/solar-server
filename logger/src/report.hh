@@ -1,6 +1,7 @@
 #pragma once
 
-#include <format>
+#include <fmt/format.h>
+#include <fmt/chrono.h>
 #include <chrono>
 #include <string>
 #include <vector>
@@ -22,10 +23,10 @@ struct status_report {
 };
 
 template <>
-struct std::formatter<status_report> : std::formatter<std::string_view> {
+struct fmt::formatter<status_report> : fmt::formatter<std::string_view> {
     template <typename Context>
     auto format(const status_report &report, Context &ctx) const {
-        return format_to(ctx.out(),
+        return fmt::format_to(ctx.out(),
 R"(report:
   current weather: {}
   upcoming daytime weather: {}

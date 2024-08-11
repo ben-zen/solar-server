@@ -1,6 +1,7 @@
 #pragma once
 
-#include <format>
+#include <fmt/format.h>
+#include <fmt/chrono.h>
 #include <string>
 
 #include <curl/curl.h>
@@ -20,7 +21,7 @@ enum class overall_condition {
 };
 
 template<>
-struct std::formatter<overall_condition> : std::formatter<std::string_view> {
+struct fmt::formatter<overall_condition> : fmt::formatter<std::string_view> {
   template <typename Context>
   auto format(const overall_condition &condition, Context &context) const -> auto {
     switch (condition) {
@@ -54,17 +55,17 @@ enum class temperature_unit {
 };
 
 template<>
-struct std::formatter<temperature_unit> : std::formatter<std::string_view> {
+struct fmt::formatter<temperature_unit> : fmt::formatter<std::string_view> {
   // Bonus to make this support long and short forms.
 
   template <typename Context>
   auto format(const temperature_unit &unit, Context &context) const -> auto {
     switch (unit) {
       case temperature_unit::celsius:
-        return formatter<std::string_view>::format("°C", context);
+        return fmt::formatter<std::string_view>::format("°C", context);
 
       case temperature_unit::fahrenheit:
-        return formatter<std::string_view>::format("°F", context);
+        return fmt::formatter<std::string_view>::format("°F", context);
     }
 
     // Unreachable
@@ -81,26 +82,26 @@ struct daytime_forecast {
 };
 
 template<>
-struct std::formatter<daytime_forecast> : std::formatter<std::string_view> {
+struct fmt::formatter<daytime_forecast> : fmt::formatter<std::string_view> {
   template <typename Context>
   auto format(const daytime_forecast &fc, Context &ctx) const {
-    return format_to(ctx.out(), "{}, {}, {}", fc.timeframe, fc.condition, fc.temp);
+    return fmt::format_to(ctx.out(), "{}, {}, {}", fc.timeframe, fc.condition, fc.temp);
   }
 };
 
 template <>
-struct std::formatter<std::vector<daytime_forecast>> : std::formatter<std::string_view> {
+struct fmt::formatter<std::vector<daytime_forecast>> : fmt::formatter<std::string_view> {
   template <typename Context>
   auto format(const std::vector<daytime_forecast> &fcx, Context &ctx) const {
-    format_to(ctx.out(), "[");
+    fmt::format_to(ctx.out(), "[");
     auto iter = fcx.cbegin();
     while (iter != fcx.cend()) {
-      format_to(ctx.out(),
+      fmt::format_to(ctx.out(),
                 "{{ {} }}{}",
                 *iter,
                 ((++iter != fcx.cend()) ? ", " : ""));
     }
-    return format_to(ctx.out(), "]");
+    return fmt::format_to(ctx.out(), "]");
   }
 };
 

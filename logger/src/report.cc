@@ -26,14 +26,14 @@ status_report generate_report(curl_handle &curl)
 
     for (auto &&f : forecast)
     {
-        std::cout << std::format("{}, {}, {}", f.condition, f.temp, f.timeframe) << "," << std::endl;
+        std::cout << fmt::format("{}, {}, {}", f.condition, f.temp, f.timeframe) << "," << std::endl;
     }
 
     report.upcoming_days = std::move(forecast);
 
     auto observation = weather.get_current_observation();
 
-    std::cout << std::format("{}, {}, {}", observation.condition, observation.temp, observation.timeframe) << std::endl;
+    std::cout << fmt::format("{}, {}, {}", observation.condition, observation.temp, observation.timeframe) << std::endl;
 
     report.current_weather = observation;
 
