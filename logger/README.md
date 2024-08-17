@@ -6,6 +6,13 @@ Drawing direct inspiration from the way [LOW←TECH MAGAZINE](https://solar.lowt
 
 ### Dependencies
 
+#### Compiler, build system, etc.
+
+- [Meson](https://mesonbuild.com/)
+- Clang++ 16
+
+To configure the build correctly, run `CC=clang CXX=clang++ meson setup build src` to ensure Meson uses Clang/++ instead of GCC.
+
 #### Fedora
 
 `libcurl`, `libcurl-devel`, `fmt`, `fmt-devel`
