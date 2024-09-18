@@ -1,10 +1,15 @@
 // Copyright (C) Ben Lewis, 2024.
 // SPDX-License-Identifier: MIT
 
+#include <cctype>
 #include <chrono>
+#include <cstdlib>
+#include <iomanip>
 #include <iostream>
 #include <ranges>
 #include <string>
+#include <string_view>
+#include <map>
 
 #include <strings.h>
 #include <unistd.h>
@@ -16,6 +21,108 @@
 #include <argparse.hpp>
 
 using json = nlohmann::json;
+
+// The |application/x-www-form-urlencoded percent-encode set| contains all code points except:
+// * Alphanumerics
+// * U+002A (*), U+002D (-), U+002E (.), and U+005F (_)
+bool is_unencoded(unsigned char ch) {
+    static std::string exceptions{"*-._"};
+    return std::isalnum(ch) || (exceptions.find(ch) != std::string::npos); 
+}
+
+// Implements x-www-form-urlencoded from RFC3986 and https://url.spec.whatwg.org/
+// with a focus on UTF-8.
+std::string urlencode_serlialize(std::string const &str) {
+    std::string encoded{};
+
+    for (auto &ch : str) {
+        if (is_unencoded(ch)) {
+            encoded.push_back(ch);
+            continue;
+        }
+        
+        // Percent-encode anything else.
+        encoded.append(fmt::format("%{:X}", ch));
+    }
+
+    return encoded;
+}
+
+std::string urlencode_deserialize(std::string const &enc_str) {
+    std::string decoded{};
+    auto enc_cursor = enc_str.begin();
+
+    while (enc_cursor != enc_str.end()) {
+        if (*enc_cursor != '%') {
+            if (is_unencoded(*enc_cursor)){
+                decoded.push_back(*enc_cursor);
+            } else if (*enc_cursor == '+') {
+                decoded.push_back(' ');
+            } else {
+                std::cerr << "urlencode_deserialize: Encountered unexpected character: " << *enc_cursor << " Writing & continuing."<< std::endl;
+                decoded.push_back(*enc_cursor);
+            }
+            
+            enc_cursor++;
+            continue;
+        }
+
+        // Percent-decode time!
+        if ((enc_cursor + 1) == enc_str.end() || (enc_cursor + 2) == enc_str.end()) {
+            throw new std::out_of_range{fmt::format("Terminated mid-percent encoding: {}", enc_str)};
+        }
+
+        // From this, we know that (enc_cursor + 3) is at most enc_str.end(), which is okay for parsing.
+
+        if (!std::isxdigit(*(enc_cursor + 1)) || !std::isxdigit(*(enc_cursor + 2))) {
+            throw new std::invalid_argument{fmt::format("Non-hex character in percent-encoding: {}", enc_str)};
+        }
+
+        std::string decode{(enc_cursor + 1), (enc_cursor + 3)};
+        std::istringstream decoder{decode};
+        short decoded_short{};
+
+        decoder >> std::setbase(16) >> decoded_short;
+        decoded.push_back((char) decoded_short);
+        enc_cursor += 3;
+    }
+
+    return decoded;
+}
+
+// packing form data is also needed.
+
+std::map<std::string, std::string> unpack_form_data(const std::string_view &form_text) {
+    std::map<std::string, std::string> form_data{};
+
+    std::cout << "String length: " << form_text.length() << std::endl;
+    size_t index = 0;
+    while (index < form_text.length()) {
+        auto sep_index = form_text.find("&", index);
+        if (sep_index == std::string::npos) {
+            std::cout << "index is at " << index << " and there's no further &s to be had." << std::endl;
+            sep_index = form_text.length();
+        } else {
+            std::cout << "Found an & at " << sep_index << std::endl;
+        }
+
+        auto form_row = form_text.substr(index, (sep_index - index));
+        std::cout << "Got row: " << form_row << std::endl;
+
+        auto row_sep = form_row.find("=", 0);
+        std::string enc_name {form_row.substr(0, row_sep)};
+        std::string enc_data {form_row.substr(row_sep + 1)};
+        std::cout << "name: " << enc_name << " data: " << enc_data << std::endl;
+        std::cout << urlencode_deserialize(enc_name) << ": " << urlencode_deserialize(enc_data) << std::endl;
+
+        form_data.emplace(urlencode_deserialize(enc_name),
+                          urlencode_deserialize(enc_data));
+
+        index = sep_index + 1;
+    }
+
+    return form_data;
+}
 
 int format_entry(const std::string &author,
                  const std::string &location,
@@ -114,10 +221,19 @@ int main(int argc, char **argv) {
 
     err << content << std::endl;
 
-    if (env_vars.contains(http_content_type) && env_vars[http_content_type].compare("application/x-www-form-urlencoded") == 0)
+    //if (env_vars.contains(http_content_type) && env_vars[http_content_type].compare("application/x-www-form-urlencoded") == 0)
     {
         err << "Parse input into a useful structure." << std::endl;
+        auto form_data = unpack_form_data(content);
+
+        err << fmt::format("{}", fmt::join(form_data, "\n")) << std::endl << std::endl;
+
+        author = form_data["name"];
+        location = form_data["location"];
+        message = form_data["message"];
     }
+
+    format_entry(author, location, message, std::cout);
 
     std::exit(0);
 }
