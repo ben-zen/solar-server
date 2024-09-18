@@ -4,6 +4,7 @@
 #include <cctype>
 #include <chrono>
 #include <cstdlib>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <ranges>
@@ -127,7 +128,7 @@ std::map<std::string, std::string> unpack_form_data(const std::string_view &form
 int format_entry(const std::string &author,
                  const std::string &location,
                  const std::string &message,
-                 std::ostream &output) {
+                 std::basic_ostream<char> &output) {
     // An entry consists of front matter, two newlines, the message body, and a final newline.
     // If this resembles a Hugo document to you ... yes.
     // To that end, we should collect system status (ideally by loading & calling, but I'm not picky)
@@ -161,9 +162,11 @@ const char *http_content_type{"CONTENT_TYPE"};
 int main(int argc, char **argv) {
 
     auto &err = std::cout;
+
     std::string author{};
     std::string location{};
     std::string message{};
+
     // auto content_length = getenv("CONTENT_LENGTH");
     // if (content_length == nullptr) {
     //     // Not running as a CGI script.
@@ -231,6 +234,17 @@ int main(int argc, char **argv) {
         author = form_data["name"];
         location = form_data["location"];
         message = form_data["message"];
+    }
+
+    // Open the log file.
+
+    if (env_vars.contains("LOGBOOK") && std::filesystem::exists(env_vars["LOGBOOK"])) {
+        err << "Writing to the logbook under " << env_vars["LOGBOOK"] << std::endl;
+        std::filesystem::path logbook_path {env_vars["LOGBOOK"]+"/logbook.current.log"};
+        std::fstream logbook_stream{};
+        logbook_stream.open(logbook_path, std::ios_base::in | std::ios_base::out | std::ios_base::app);
+
+        format_entry(author, location, message, logbook_stream);
     }
 
     format_entry(author, location, message, std::cout);
