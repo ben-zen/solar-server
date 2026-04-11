@@ -155,6 +155,7 @@ enum class HttpStatus {
     bad_request         = 400,
     not_found           = 404,
     payload_too_large   = 413,
+    enhance_your_calm   = 420,
     internal_error      = 500,
 };
 
@@ -166,6 +167,7 @@ inline std::string_view status_phrase(HttpStatus code) {
         case HttpStatus::bad_request:       return "Bad Request";
         case HttpStatus::not_found:         return "Not Found";
         case HttpStatus::payload_too_large: return "Payload Too Large";
+        case HttpStatus::enhance_your_calm: return "Enhance Your Calm";
         case HttpStatus::internal_error:    return "Internal Server Error";
     }
     return "Unknown";
@@ -270,8 +272,19 @@ inline std::string generate_cgi_redirect(const std::string &redirect_url) {
 
 // Generates a CGI error response.  |detail| lets callers describe what
 // specifically went wrong so end users (and server logs) get useful context.
+// Only error codes (4xx, 5xx) are permitted.  If a non-error code is provided,
+// the code and detail are logged to stderr and a 500 "Internal Server Error"
+// is returned instead.
 inline std::string generate_cgi_error(HttpStatus code,
                                       const std::string &detail = "") {
+    int code_int = static_cast<int>(code);
+    if (code_int < 400 || code_int > 599) {
+        std::cerr << fmt::format(
+            "generate_cgi_error: non-error status {} passed; detail='{}'. Returning 500.\n",
+            code_int, detail);
+        code = HttpStatus::internal_error;
+    }
+
     auto phrase = status_phrase(code);
     std::string body_detail = detail.empty()
         ? std::string(phrase)

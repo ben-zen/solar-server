@@ -564,6 +564,7 @@ TEST_CASE("status_phrase returns correct phrase for each HttpStatus") {
     CHECK(status_phrase(HttpStatus::bad_request) == "Bad Request");
     CHECK(status_phrase(HttpStatus::not_found) == "Not Found");
     CHECK(status_phrase(HttpStatus::payload_too_large) == "Payload Too Large");
+    CHECK(status_phrase(HttpStatus::enhance_your_calm) == "Enhance Your Calm");
     CHECK(status_phrase(HttpStatus::internal_error) == "Internal Server Error");
 }
 
@@ -635,4 +636,23 @@ TEST_CASE("generate_cgi_error includes detail in body") {
 TEST_CASE("generate_cgi_error without detail uses phrase as body text") {
     auto response = generate_cgi_error(HttpStatus::payload_too_large);
     CHECK(response.find("<p>Payload Too Large</p>") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_error produces 420 response") {
+    auto response = generate_cgi_error(HttpStatus::enhance_your_calm);
+    CHECK(response.find("Status: 420 Enhance Your Calm") != std::string::npos);
+    CHECK(response.find("Content-Type: text/html") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_error with non-error code returns 500") {
+    // Passing a 2xx code should be rejected and replaced with 500.
+    auto response = generate_cgi_error(HttpStatus::ok, "should not appear as 200");
+    CHECK(response.find("Status: 500 Internal Server Error") != std::string::npos);
+    CHECK(response.find("Status: 200") == std::string::npos);
+}
+
+TEST_CASE("generate_cgi_error with 3xx code returns 500") {
+    auto response = generate_cgi_error(HttpStatus::see_other, "not an error");
+    CHECK(response.find("Status: 500 Internal Server Error") != std::string::npos);
+    CHECK(response.find("Status: 303") == std::string::npos);
 }
