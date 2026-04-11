@@ -85,6 +85,9 @@ size_t gather_response(void *buffer,
 }
 
 overall_condition condition_from_string(const std::string &str) {
+    // NWS "shortForecast" values mapped to the overall_condition enum.
+    // "Mostly Clear" maps to clear (nighttime equivalent of "Mostly Sunny"),
+    // while "Mostly Sunny" maps to partly_cloudy since it implies some clouds.
     static std::map<std::string, overall_condition> relation {
         {"Sunny", overall_condition::clear},
         {"Clear", overall_condition::clear},
