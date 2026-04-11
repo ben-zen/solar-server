@@ -148,7 +148,7 @@ inline int format_entry(const std::string &author,
 }
 
 // Generates a filename for a guestbook entry: YYYY-MM-DDTHH-MM-SS_authorpart.md
-// The author part consists of the first 8 ASCII letters from the author name,
+// The author part consists of the first 8 alphabetic glyphs from the author name,
 // lowercased for filesystem safety.
 inline std::string generate_entry_filename(
     const std::string &author,
