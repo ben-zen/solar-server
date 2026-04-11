@@ -15,6 +15,15 @@
 
 using json = nlohmann::json;
 
+// These functions are internal to their respective compilation units but are
+// declared here so the test binary can link against and exercise them directly.
+temperature_unit temperature_unit_from_string(const std::string &str);
+temperature_unit temperature_unit_from_shortcode(const std::string &str);
+temperature read_temperature_from_json(nlohmann::json &data);
+overall_condition condition_from_string(const std::string &str);
+std::vector<daytime_forecast> load_forecast(const std::string &forecast_response);
+std::string convert_condition_to_filename(overall_condition condition);
+
 // ---------------------------------------------------------------------------
 // Sample NWS API forecast responses for three locations.
 //
@@ -23,6 +32,9 @@ using json = nlohmann::json;
 // ---------------------------------------------------------------------------
 
 // Washington Monument, Washington DC (station KDCA, grid LWX/97,71)
+// NWS points: https://api.weather.gov/points/38.8895,-77.0353
+// Forecast:   https://api.weather.gov/gridpoints/LWX/97,71/forecast
+// Observation: https://api.weather.gov/stations/KDCA/observations/latest
 static const std::string washington_monument_forecast = R"({
   "properties": {
     "periods": [
@@ -76,6 +88,9 @@ static const std::string washington_monument_forecast = R"({
 })";
 
 // Cal Anderson Park, Seattle WA (station KBFI, grid SEW/124,69)
+// NWS points: https://api.weather.gov/points/47.6174,-122.3188
+// Forecast:   https://api.weather.gov/gridpoints/SEW/124,69/forecast
+// Observation: https://api.weather.gov/stations/KBFI/observations/latest
 static const std::string cal_anderson_park_forecast = R"({
   "properties": {
     "periods": [
@@ -147,6 +162,9 @@ static const std::string cal_anderson_park_forecast = R"({
 })";
 
 // Marrowstone Island, Puget Sound WA (station KNUW, grid SEW/151,65)
+// NWS points: https://api.weather.gov/points/48.069,-122.6839
+// Forecast:   https://api.weather.gov/gridpoints/SEW/151,65/forecast
+// Observation: https://api.weather.gov/stations/KNUW/observations/latest
 static const std::string marrowstone_island_forecast = R"({
   "properties": {
     "periods": [

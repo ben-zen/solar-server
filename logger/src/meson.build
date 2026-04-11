@@ -1,4 +1,4 @@
-project('solar-logger', 'cpp', default_options: ['cpp_std=c++20'])
+project('solar-logger', 'cpp', default_options: ['cpp_std=c++20', 'warning_level=2'])
 
 curl_dep = dependency('libcurl', method: 'pkg-config')
 fmt_dep = dependency('fmt', method: 'pkg-config')

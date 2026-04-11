@@ -105,13 +105,6 @@ struct fmt::formatter<std::vector<daytime_forecast>> : fmt::formatter<std::strin
   }
 };
 
-// Free functions for parsing NWS API data.
-temperature_unit temperature_unit_from_string(const std::string &str);
-temperature_unit temperature_unit_from_shortcode(const std::string &str);
-temperature read_temperature_from_json(nlohmann::json &data);
-overall_condition condition_from_string(const std::string &str);
-std::vector<daytime_forecast> load_forecast(const std::string &forecast_response);
-
 class weather_loader {
 public:
   weather_loader(curl_handle &curl);
