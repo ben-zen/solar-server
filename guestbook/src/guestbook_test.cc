@@ -203,7 +203,7 @@ TEST_CASE("format_entry safely serializes HTML/script injection in author field"
     // interpreted as HTML.  nlohmann/json escapes < and > as Unicode escapes or
     // keeps them literal inside JSON strings (which is safe in a JSON context).
     // Verify the JSON is re-parseable (not corrupted by the injection).
-    CHECK_NOTHROW(json::parse(json_part));
+    CHECK_NOTHROW(static_cast<void>(json::parse(json_part)));
 }
 
 TEST_CASE("format_entry safely serializes HTML/script injection in message field") {
@@ -216,7 +216,7 @@ TEST_CASE("format_entry safely serializes HTML/script injection in message field
     std::string json_part = result.substr(0, double_newline);
 
     // JSON front matter must remain valid.
-    CHECK_NOTHROW(json::parse(json_part));
+    CHECK_NOTHROW(static_cast<void>(json::parse(json_part)));
 
     // Message body should appear after the front matter.
     std::string body = result.substr(double_newline + 2);
