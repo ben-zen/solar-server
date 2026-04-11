@@ -72,8 +72,11 @@ hugo
 ### Fedora
 
 * `clang`, `meson`, `pkg-config`
-* `fmt`, `fmt-devel`
+* `fmt`, `fmt-devel`, `fmt-doc`†
 * `libcurl`, `libcurl-devel`
+
+† Documentation packages are optional. On Fedora, `libcurl-devel` already
+includes API docs; `fmt-doc` is a separate package.
 
 ## Deployment
 
@@ -85,6 +88,49 @@ The intended deployment layout on the target device:
 /usr/lib/cgi-bin/        → guestbook CGI binary
 /etc/systemd/system/     → update-status.service + update-status.timer
 ```
+
+### lighttpd
+
+Install lighttpd and enable CGI support:
+
+```sh
+apt install lighttpd
+lighttpd-enable-mod cgi
+```
+
+Add the following to `/etc/lighttpd/conf-enabled/10-cgi.conf` (or verify it
+exists after enabling the module):
+
+```lighttpd
+server.modules += ( "mod_cgi" )
+
+cgi.assign = ( "" => "" )
+
+alias.url += ( "/cgi-bin/" => "/usr/lib/cgi-bin/" )
+```
+
+Set the document root to the Hugo output directory in
+`/etc/lighttpd/lighttpd.conf`:
+
+```lighttpd
+server.document-root = "/www/solar-site"
+```
+
+Set the `LOGBOOK` environment variable for the guestbook CGI so it knows
+where to write entries:
+
+```lighttpd
+cgi.execute-x-only = "disable"
+setenv.add-environment = ( "LOGBOOK" => "/www/solar-site/guestbook" )
+```
+
+Then restart lighttpd:
+
+```sh
+systemctl restart lighttpd
+```
+
+### systemd timer
 
 Enable the status updater with:
 
