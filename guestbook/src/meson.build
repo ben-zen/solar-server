@@ -6,3 +6,7 @@ guestbook_deps = [ fmt_dep ]
 guestbook_includes = [ '../../include_ext' ]
 guestbook_files = [ 'main.cc' ]
 executable('guestbook', guestbook_files, dependencies: guestbook_deps, include_directories: guestbook_includes)
+
+guestbook_test_files = [ 'guestbook_test.cc' ]
+guestbook_test = executable('guestbook_test', guestbook_test_files, dependencies: guestbook_deps, include_directories: guestbook_includes)
+test('guestbook_tests', guestbook_test)
