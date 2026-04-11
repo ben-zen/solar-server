@@ -85,8 +85,8 @@ The logrotate configuration (`lighttpd/logrotate.conf`) is installed by
 - **Compression**: enabled (`compress`, `delaycompress`)
 - **Missing/empty**: tolerant (`missingok`, `notifempty`)
 - **Ownership**: recreated as `640 www-data:www-data`
-- **Signal**: sends `USR1` to lighttpd so it reopens its log file after
-  rotation
+- **Reload**: runs `systemctl reload lighttpd` so lighttpd reopens its log
+  file after rotation
 
 Verify the configuration with:
 
