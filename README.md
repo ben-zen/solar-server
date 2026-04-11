@@ -162,7 +162,7 @@ where to write entries:
 
 ```lighttpd
 cgi.execute-x-only = "disable"
-setenv.add-environment = ( "LOGBOOK" => "/www/solar-site/guestbook" )
+setenv.add-environment = ( "LOGBOOK" => "/srv/guestbook/logbook" )
 ```
 
 Then restart lighttpd:

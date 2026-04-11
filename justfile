@@ -34,5 +34,6 @@ deploy: deploy-lighttpd
 # Install and configure lighttpd for the solar-server project (requires root)
 deploy-lighttpd:
     install -d /etc/lighttpd/conf-enabled
+    install -d /srv/guestbook/logbook
     install -m 644 lighttpd/solar-server.conf /etc/lighttpd/conf-enabled/90-solar-server.conf
     systemctl restart lighttpd
