@@ -158,11 +158,6 @@ inline std::optional<size_t> parse_content_length(const char *env_value) {
 
     std::string_view sv{env_value};
 
-    // Reject negative values (leading minus sign).
-    if (sv.front() == '-') {
-        return std::nullopt;
-    }
-
     size_t value{};
     auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
     if (ec != std::errc{} || ptr != sv.data() + sv.size()) {

@@ -34,7 +34,7 @@ void write_to_logbook(const std::string &author,
                       const std::string &message,
                       const std::map<std::string, std::string> &env_vars) {
     if (env_vars.contains("LOGBOOK") && std::filesystem::exists(env_vars.at("LOGBOOK"))) {
-        std::filesystem::path logbook_path{env_vars.at("LOGBOOK") + "/logbook.current.log"};
+        std::filesystem::path logbook_path = std::filesystem::path(env_vars.at("LOGBOOK")) / "logbook.current.log";
         std::fstream logbook_stream{};
         logbook_stream.open(logbook_path, std::ios_base::in | std::ios_base::out | std::ios_base::app);
         format_entry(author, location, message, logbook_stream);
