@@ -1,4 +1,4 @@
-project('guestbook', 'cpp', default_options: ['cpp_std=c++20'])
+project('guestbook', 'cpp', default_options: ['cpp_std=c++20', 'warning_level=2'])
 
 fmt_dep = dependency('fmt', method: 'pkg-config')
 

@@ -56,6 +56,9 @@ solar-server/
   ```sh
   CC=clang CXX=clang++ meson setup build src
   ```
+- **Compiler warnings**: Meson `warning_level=2` (`-Wall -Wextra`) is enabled
+  in all `meson.build` files. Code changes **must not** introduce new compiler
+  warnings. Always check build output for warnings after making changes.
 - **Build system**: [Meson](https://mesonbuild.com/). Each component
   (`guestbook/src`, `logger/src`) has its own `meson.build`.
 - **Formatting**: Uses `{fmt}` library (v9) throughout; avoid `<iostream>`

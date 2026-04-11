@@ -29,6 +29,10 @@ jobs:
         run: meson compile -C build
         working-directory: logger
 
+      - name: Test logger
+        run: meson test -C build -v
+        working-directory: logger
+
       - name: Configure guestbook
         run: CC=clang CXX=clang++ meson setup build src
         working-directory: guestbook
