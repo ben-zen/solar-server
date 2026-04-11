@@ -42,6 +42,7 @@ jobs:
         working-directory: website
 
       - name: Bundle artifacts
+        if: github.event_name == 'push'
         run: |
           mkdir -p bundle/bin bundle/website
           cp logger/build/logger bundle/bin/
@@ -49,6 +50,7 @@ jobs:
           cp -r website/public bundle/website/
 
       - name: Upload bundle
+        if: github.event_name == 'push'
         uses: actions/upload-artifact@v7
         with:
           name: solar-server-bundle
