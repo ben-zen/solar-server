@@ -163,7 +163,10 @@ TEST_CASE("format_entry produces valid JSON front matter") {
 
     CHECK(parsed["params"]["author"] == "Alice");
     CHECK(parsed["params"]["location"] == "Wonderland");
-    CHECK(parsed.contains("time"));
+    CHECK(parsed.contains("date"));
+    CHECK(parsed.contains("title"));
+    CHECK(parsed["title"] == "Guestbook entry from Alice");
+    CHECK(parsed["type"] == "guestbook");
 }
 
 TEST_CASE("format_entry includes the message body after front matter") {
@@ -180,6 +183,71 @@ TEST_CASE("format_entry includes the message body after front matter") {
 TEST_CASE("format_entry returns zero on success") {
     std::ostringstream out;
     CHECK(format_entry("A", "B", "C", out) == 0);
+}
+
+TEST_CASE("format_entry with explicit timestamp formats date correctly") {
+    std::ostringstream out;
+    // 2024-07-01T23:25:08 UTC
+    auto tp = std::chrono::sys_days{std::chrono::year{2024}/7/1}
+            + std::chrono::hours{23} + std::chrono::minutes{25} + std::chrono::seconds{8};
+    format_entry("Alice", "Wonderland", "Hello!", out, tp);
+
+    std::string result = out.str();
+    auto double_newline = result.find("\n\n");
+    auto parsed = json::parse(result.substr(0, double_newline));
+    CHECK(parsed["date"] == "2024-07-01T23:25:08");
+}
+
+// ---------------------------------------------------------------------------
+// generate_entry_filename — dated filenames for individual guestbook entries
+// ---------------------------------------------------------------------------
+
+TEST_CASE("generate_entry_filename basic case") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2024}/7/1}
+            + std::chrono::hours{23} + std::chrono::minutes{25} + std::chrono::seconds{8};
+    CHECK(generate_entry_filename("Alice", tp) == "2024-07-01T23-25-08_alice.md");
+}
+
+TEST_CASE("generate_entry_filename truncates author to 8 letters") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2025}/1/15}
+            + std::chrono::hours{12} + std::chrono::minutes{0} + std::chrono::seconds{0};
+    CHECK(generate_entry_filename("BenjaminLewis", tp) == "2025-01-15T12-00-00_benjamin.md");
+}
+
+TEST_CASE("generate_entry_filename skips non-alpha characters") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2024}/3/10}
+            + std::chrono::hours{8} + std::chrono::minutes{30} + std::chrono::seconds{45};
+    CHECK(generate_entry_filename("R2-D2 Bot", tp) == "2024-03-10T08-30-45_rdbot.md");
+}
+
+TEST_CASE("generate_entry_filename with spaces in author name") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2024}/6/15}
+            + std::chrono::hours{10} + std::chrono::minutes{0} + std::chrono::seconds{0};
+    CHECK(generate_entry_filename("Bob Smith", tp) == "2024-06-15T10-00-00_bobsmith.md");
+}
+
+TEST_CASE("generate_entry_filename with empty author") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2024}/1/1}
+            + std::chrono::hours{0} + std::chrono::minutes{0} + std::chrono::seconds{0};
+    CHECK(generate_entry_filename("", tp) == "2024-01-01T00-00-00_.md");
+}
+
+TEST_CASE("generate_entry_filename with only non-alpha characters") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2024}/12/31}
+            + std::chrono::hours{23} + std::chrono::minutes{59} + std::chrono::seconds{59};
+    CHECK(generate_entry_filename("12345!@#", tp) == "2024-12-31T23-59-59_.md");
+}
+
+TEST_CASE("generate_entry_filename lowercases author letters") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2024}/7/4}
+            + std::chrono::hours{12} + std::chrono::minutes{0} + std::chrono::seconds{0};
+    CHECK(generate_entry_filename("ALICE", tp) == "2024-07-04T12-00-00_alice.md");
+}
+
+TEST_CASE("generate_entry_filename with short author") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2024}/7/4}
+            + std::chrono::hours{12} + std::chrono::minutes{0} + std::chrono::seconds{0};
+    CHECK(generate_entry_filename("Bo", tp) == "2024-07-04T12-00-00_bo.md");
 }
 
 // ---------------------------------------------------------------------------

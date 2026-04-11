@@ -47,15 +47,17 @@ void write_to_logbook(const std::string &author,
         return;
     }
 
-    std::filesystem::path logbook_path = std::filesystem::path(logbook_dir) / "logbook.current.log";
-    std::ofstream logbook_stream(logbook_path, std::ios::app);
+    auto timestamp = std::chrono::system_clock::now();
+    auto filename = generate_entry_filename(author, timestamp);
+    std::filesystem::path logbook_path = std::filesystem::path(logbook_dir) / filename;
+    std::ofstream logbook_stream(logbook_path);
 
     if (!logbook_stream.is_open()) {
         err << fmt::format("write_to_logbook: failed to open logbook file: {}\n", logbook_path.string());
         return;
     }
 
-    format_entry(author, location, message, logbook_stream);
+    format_entry(author, location, message, logbook_stream, timestamp);
 
     if (!logbook_stream) {
         err << fmt::format("write_to_logbook: error writing to logbook file: {}\n", logbook_path.string());
