@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <exception>
 #include <iostream>
+#include <map>
 #include <string>
 
 #include <curl/curl.h>

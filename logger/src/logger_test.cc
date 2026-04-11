@@ -51,11 +51,11 @@ static const std::string washington_monument_forecast = R"({
   "geometry": {
     "type": "Polygon",
     "coordinates": [[
-      [-77.0521399, 38.9035057],
-      [-77.0270498, 38.9013498],
-      [-77.0237034, 38.8797498],
-      [-77.0487892, 38.8818985],
-      [-77.0521399, 38.9035057]
+      [-77.0125, 38.8759],
+      [-77.0088, 38.8979],
+      [-77.037, 38.9008],
+      [-77.0408, 38.8788],
+      [-77.0125, 38.8759]
     ]]
   },
   "properties": {
@@ -66,7 +66,7 @@ static const std::string washington_monument_forecast = R"({
     "validTimes": "2025-06-15T06:00:00+00:00/P7DT18H",
     "elevation": {
       "unitCode": "wmoUnit:m",
-      "value": 9.144
+      "value": 6.096
     },
     "periods": [
       {
@@ -77,18 +77,10 @@ static const std::string washington_monument_forecast = R"({
         "isDaytime": true,
         "temperature": 88,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": null
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 18.33
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 55
         },
         "windSpeed": "5 to 10 mph",
         "windDirection": "SW",
@@ -104,18 +96,10 @@ static const std::string washington_monument_forecast = R"({
         "isDaytime": false,
         "temperature": 68,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": null
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 17.22
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 72
         },
         "windSpeed": "2 to 5 mph",
         "windDirection": "SW",
@@ -131,18 +115,10 @@ static const std::string washington_monument_forecast = R"({
         "isDaytime": true,
         "temperature": 91,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": 20
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 20.0
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 58
         },
         "windSpeed": "8 to 12 mph",
         "windDirection": "S",
@@ -158,18 +134,10 @@ static const std::string washington_monument_forecast = R"({
         "isDaytime": false,
         "temperature": 72,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": 30
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 21.11
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 80
         },
         "windSpeed": "5 to 8 mph",
         "windDirection": "S",
@@ -190,14 +158,6 @@ static const std::string washington_monument_forecast = R"({
           "unitCode": "wmoUnit:percent",
           "value": 70
         },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 22.22
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 85
-        },
         "windSpeed": "10 to 15 mph",
         "windDirection": "W",
         "icon": "https://api.weather.gov/icons/land/day/tsra,70?size=medium",
@@ -208,9 +168,9 @@ static const std::string washington_monument_forecast = R"({
   }
 })";
 
-// Cal Anderson Park, Seattle WA (station KBFI, grid SEW/124,69)
+// Cal Anderson Park, Seattle WA (station KBFI, grid SEW/125,68)
 // NWS points: https://api.weather.gov/points/47.6174,-122.3188
-// Forecast:   https://api.weather.gov/gridpoints/SEW/124,69/forecast
+// Forecast:   https://api.weather.gov/gridpoints/SEW/125,68/forecast
 // Observation: https://api.weather.gov/stations/KBFI/observations/latest
 static const std::string cal_anderson_park_forecast = R"({
   "@context": [
@@ -227,11 +187,11 @@ static const std::string cal_anderson_park_forecast = R"({
   "geometry": {
     "type": "Polygon",
     "coordinates": [[
-      [-122.3368198, 47.6306768],
-      [-122.3092498, 47.6285023],
-      [-122.3058498, 47.6069023],
-      [-122.3334098, 47.6090698],
-      [-122.3368198, 47.6306768]
+      [-122.3017, 47.5996],
+      [-122.3079, 47.6202],
+      [-122.3383, 47.616],
+      [-122.3321, 47.5954],
+      [-122.3017, 47.5996]
     ]]
   },
   "properties": {
@@ -242,7 +202,7 @@ static const std::string cal_anderson_park_forecast = R"({
     "validTimes": "2025-06-15T06:00:00+00:00/P7DT18H",
     "elevation": {
       "unitCode": "wmoUnit:m",
-      "value": 48.768
+      "value": 73.152
     },
     "periods": [
       {
@@ -253,18 +213,10 @@ static const std::string cal_anderson_park_forecast = R"({
         "isDaytime": true,
         "temperature": 65,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": 10
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 10.0
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 62
         },
         "windSpeed": "5 to 10 mph",
         "windDirection": "NW",
@@ -280,18 +232,10 @@ static const std::string cal_anderson_park_forecast = R"({
         "isDaytime": false,
         "temperature": 52,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": 20
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 8.89
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 75
         },
         "windSpeed": "3 to 6 mph",
         "windDirection": "N",
@@ -307,18 +251,10 @@ static const std::string cal_anderson_park_forecast = R"({
         "isDaytime": true,
         "temperature": 62,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": 60
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 10.56
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 80
         },
         "windSpeed": "8 to 12 mph",
         "windDirection": "S",
@@ -334,18 +270,10 @@ static const std::string cal_anderson_park_forecast = R"({
         "isDaytime": false,
         "temperature": 50,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": 80
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 9.44
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 88
         },
         "windSpeed": "5 to 10 mph",
         "windDirection": "S",
@@ -361,18 +289,10 @@ static const std::string cal_anderson_park_forecast = R"({
         "isDaytime": true,
         "temperature": 60,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": 20
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 8.33
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 65
         },
         "windSpeed": "5 to 8 mph",
         "windDirection": "NW",
@@ -388,18 +308,10 @@ static const std::string cal_anderson_park_forecast = R"({
         "isDaytime": false,
         "temperature": 49,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": null
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 7.22
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 70
         },
         "windSpeed": "3 to 5 mph",
         "windDirection": "N",
@@ -415,18 +327,10 @@ static const std::string cal_anderson_park_forecast = R"({
         "isDaytime": true,
         "temperature": 68,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": null
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 9.44
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 58
         },
         "windSpeed": "5 to 10 mph",
         "windDirection": "NW",
@@ -438,10 +342,10 @@ static const std::string cal_anderson_park_forecast = R"({
   }
 })";
 
-// Marrowstone Island, Puget Sound WA (station KNUW, grid SEW/151,65)
+// Marrowstone Island, Puget Sound WA (station K0S9, grid SEW/118,92)
 // NWS points: https://api.weather.gov/points/48.069,-122.6839
-// Forecast:   https://api.weather.gov/gridpoints/SEW/151,65/forecast
-// Observation: https://api.weather.gov/stations/KNUW/observations/latest
+// Forecast:   https://api.weather.gov/gridpoints/SEW/118,92/forecast
+// Observation: https://api.weather.gov/stations/K0S9/observations/latest
 static const std::string marrowstone_island_forecast = R"({
   "@context": [
     "https://geojson.org/geojson-ld/geojson-context.jsonld",
@@ -457,11 +361,11 @@ static const std::string marrowstone_island_forecast = R"({
   "geometry": {
     "type": "Polygon",
     "coordinates": [[
-      [-122.7019889, 48.0822356],
-      [-122.6733198, 48.0800234],
-      [-122.6698198, 48.0584234],
-      [-122.6984798, 48.0606287],
-      [-122.7019889, 48.0822356]
+      [-122.6659, 48.0619],
+      [-122.6722, 48.0823],
+      [-122.7028, 48.0781],
+      [-122.6964, 48.0577],
+      [-122.6659, 48.0619]
     ]]
   },
   "properties": {
@@ -472,7 +376,7 @@ static const std::string marrowstone_island_forecast = R"({
     "validTimes": "2025-06-15T06:00:00+00:00/P7DT18H",
     "elevation": {
       "unitCode": "wmoUnit:m",
-      "value": 4.572
+      "value": 18.8976
     },
     "periods": [
       {
@@ -483,18 +387,10 @@ static const std::string marrowstone_island_forecast = R"({
         "isDaytime": true,
         "temperature": 58,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": null
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 11.67
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 95
         },
         "windSpeed": "2 mph",
         "windDirection": "N",
@@ -510,18 +406,10 @@ static const std::string marrowstone_island_forecast = R"({
         "isDaytime": false,
         "temperature": 48,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": null
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 7.78
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 78
         },
         "windSpeed": "3 to 5 mph",
         "windDirection": "N",
@@ -537,18 +425,10 @@ static const std::string marrowstone_island_forecast = R"({
         "isDaytime": true,
         "temperature": 61,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": 30
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 10.0
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 75
         },
         "windSpeed": "5 to 10 mph",
         "windDirection": "S",
@@ -564,18 +444,10 @@ static const std::string marrowstone_island_forecast = R"({
         "isDaytime": false,
         "temperature": 46,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": 50
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 7.22
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 85
         },
         "windSpeed": "5 to 8 mph",
         "windDirection": "SE",
@@ -591,18 +463,10 @@ static const std::string marrowstone_island_forecast = R"({
         "isDaytime": true,
         "temperature": 55,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": 60
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 8.89
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 82
         },
         "windSpeed": "10 to 15 mph",
         "windDirection": "S",
@@ -618,18 +482,10 @@ static const std::string marrowstone_island_forecast = R"({
         "isDaytime": false,
         "temperature": 44,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": null
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 5.56
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 72
         },
         "windSpeed": "3 to 5 mph",
         "windDirection": "N",
@@ -645,18 +501,10 @@ static const std::string marrowstone_island_forecast = R"({
         "isDaytime": true,
         "temperature": 63,
         "temperatureUnit": "F",
-        "temperatureTrend": "",
+        "temperatureTrend": null,
         "probabilityOfPrecipitation": {
           "unitCode": "wmoUnit:percent",
           "value": null
-        },
-        "dewpoint": {
-          "unitCode": "wmoUnit:degC",
-          "value": 8.33
-        },
-        "relativeHumidity": {
-          "unitCode": "wmoUnit:percent",
-          "value": 60
         },
         "windSpeed": "5 to 10 mph",
         "windDirection": "NW",
