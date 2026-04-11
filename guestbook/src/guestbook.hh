@@ -65,13 +65,13 @@ inline std::string urlencode_deserialize(std::string const &enc_str) {
 
         // Percent-decode time!
         if ((enc_cursor + 1) == enc_str.end() || (enc_cursor + 2) == enc_str.end()) {
-            throw new std::out_of_range{fmt::format("Terminated mid-percent encoding: {}", enc_str)};
+            throw std::out_of_range{fmt::format("Terminated mid-percent encoding: {}", enc_str)};
         }
 
         // From this, we know that (enc_cursor + 3) is at most enc_str.end(), which is okay for parsing.
 
         if (!std::isxdigit(*(enc_cursor + 1)) || !std::isxdigit(*(enc_cursor + 2))) {
-            throw new std::invalid_argument{fmt::format("Non-hex character in percent-encoding: {}", enc_str)};
+            throw std::invalid_argument{fmt::format("Non-hex character in percent-encoding: {}", enc_str)};
         }
 
         std::string decode{(enc_cursor + 1), (enc_cursor + 3)};
