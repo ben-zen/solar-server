@@ -1,0 +1,25 @@
+set dotenv-load := false
+
+# Default recipe: build the guestbook
+default: build
+
+# Configure the Meson build directory
+setup:
+    CC=clang CXX=clang++ meson setup --reconfigure build src || CC=clang CXX=clang++ meson setup build src
+
+# Build the guestbook binary
+build: setup
+    meson compile -C build
+
+# Run guestbook tests
+test: build
+    meson test -C build -v
+
+# Remove build artifacts
+clean:
+    rm -rf build
+
+# Deploy the guestbook CGI binary (requires root)
+deploy: build
+    install -d /usr/lib/cgi-bin
+    install -m 755 build/guestbook /usr/lib/cgi-bin/guestbook

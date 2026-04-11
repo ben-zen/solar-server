@@ -4,7 +4,22 @@ Drawing direct inspiration from the way [LOW←TECH MAGAZINE](https://solar.lowt
 
 ## Building the logger
 
-### Dependencies
+Build with [Just](https://github.com/casey/just) from the `logger/` directory:
+
+```sh
+cd logger
+just build
+```
+
+Or from the repository root:
+
+```sh
+just logger build
+```
+
+### Manual build
+
+#### Dependencies
 
 #### Compiler, build system, etc.
 
@@ -23,7 +38,25 @@ To configure the build correctly, run `CC=clang CXX=clang++ meson setup build sr
 
 ## Deploying the logger
 
-I may well write a setup script to handle deployment. Until then, the layout should be the following:
+Deploy with Just from the `logger/` directory (requires root):
+
+```sh
+cd logger
+sudo just deploy
+```
+
+Or from the repository root:
+
+```sh
+sudo just logger deploy
+```
+
+This installs the logger binary and helper script to `/srv/logger/`, copies
+the systemd units, and enables the timer.
+
+### Manual deployment
+
+The layout should be the following:
 
 ```
 /srv/logger:
