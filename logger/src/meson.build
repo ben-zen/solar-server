@@ -7,3 +7,7 @@ logger_includes = [ '../../include_ext' ]
 logger_deps = [ curl_dep, fmt_dep ]
 logger_files = ['curl.cc', 'main.cc', 'report.cc', 'transform.cc', 'weather.cc']
 executable('logger', logger_files, dependencies: logger_deps, include_directories: logger_includes)
+
+logger_test_files = ['logger_test.cc', 'curl.cc', 'weather.cc', 'transform.cc']
+logger_test = executable('logger_test', logger_test_files, dependencies: logger_deps, include_directories: logger_includes)
+test('logger_tests', logger_test)

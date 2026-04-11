@@ -1,0 +1,596 @@
+// Copyright (C) Ben Lewis, 2025.
+// SPDX-License-Identifier: MIT
+
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include <doctest.h>
+
+#include <sstream>
+#include <string>
+#include <vector>
+
+#include "weather.hh"
+#include "transform.hh"
+
+#include "include_ext/json.hpp"
+
+using json = nlohmann::json;
+
+// ---------------------------------------------------------------------------
+// Sample NWS API forecast responses for three locations.
+//
+// These are representative subsets of real NWS API /gridpoints/.../forecast
+// responses, trimmed to the fields that load_forecast() actually uses.
+// ---------------------------------------------------------------------------
+
+// Washington Monument, Washington DC (station KDCA, grid LWX/97,71)
+static const std::string washington_monument_forecast = R"({
+  "properties": {
+    "periods": [
+      {
+        "number": 1,
+        "name": "Today",
+        "startTime": "2025-06-15T06:00:00-04:00",
+        "isDaytime": true,
+        "temperature": 88,
+        "temperatureUnit": "F",
+        "shortForecast": "Sunny"
+      },
+      {
+        "number": 2,
+        "name": "Tonight",
+        "startTime": "2025-06-15T18:00:00-04:00",
+        "isDaytime": false,
+        "temperature": 68,
+        "temperatureUnit": "F",
+        "shortForecast": "Mostly Clear"
+      },
+      {
+        "number": 3,
+        "name": "Monday",
+        "startTime": "2025-06-16T06:00:00-04:00",
+        "isDaytime": true,
+        "temperature": 91,
+        "temperatureUnit": "F",
+        "shortForecast": "Partly Cloudy"
+      },
+      {
+        "number": 4,
+        "name": "Monday Night",
+        "startTime": "2025-06-16T18:00:00-04:00",
+        "isDaytime": false,
+        "temperature": 72,
+        "temperatureUnit": "F",
+        "shortForecast": "Cloudy"
+      },
+      {
+        "number": 5,
+        "name": "Tuesday",
+        "startTime": "2025-06-17T06:00:00-04:00",
+        "isDaytime": true,
+        "temperature": 85,
+        "temperatureUnit": "F",
+        "shortForecast": "Thunderstorms"
+      }
+    ]
+  }
+})";
+
+// Cal Anderson Park, Seattle WA (station KBFI, grid SEW/124,69)
+static const std::string cal_anderson_park_forecast = R"({
+  "properties": {
+    "periods": [
+      {
+        "number": 1,
+        "name": "Today",
+        "startTime": "2025-06-15T06:00:00-07:00",
+        "isDaytime": true,
+        "temperature": 65,
+        "temperatureUnit": "F",
+        "shortForecast": "Partly Sunny"
+      },
+      {
+        "number": 2,
+        "name": "Tonight",
+        "startTime": "2025-06-15T18:00:00-07:00",
+        "isDaytime": false,
+        "temperature": 52,
+        "temperatureUnit": "F",
+        "shortForecast": "Mostly Cloudy"
+      },
+      {
+        "number": 3,
+        "name": "Monday",
+        "startTime": "2025-06-16T06:00:00-07:00",
+        "isDaytime": true,
+        "temperature": 62,
+        "temperatureUnit": "F",
+        "shortForecast": "Light Rain"
+      },
+      {
+        "number": 4,
+        "name": "Monday Night",
+        "startTime": "2025-06-16T18:00:00-07:00",
+        "isDaytime": false,
+        "temperature": 50,
+        "temperatureUnit": "F",
+        "shortForecast": "Rain"
+      },
+      {
+        "number": 5,
+        "name": "Tuesday",
+        "startTime": "2025-06-17T06:00:00-07:00",
+        "isDaytime": true,
+        "temperature": 60,
+        "temperatureUnit": "F",
+        "shortForecast": "Mostly Sunny"
+      },
+      {
+        "number": 6,
+        "name": "Tuesday Night",
+        "startTime": "2025-06-17T18:00:00-07:00",
+        "isDaytime": false,
+        "temperature": 49,
+        "temperatureUnit": "F",
+        "shortForecast": "Clear"
+      },
+      {
+        "number": 7,
+        "name": "Wednesday",
+        "startTime": "2025-06-18T06:00:00-07:00",
+        "isDaytime": true,
+        "temperature": 68,
+        "temperatureUnit": "F",
+        "shortForecast": "Sunny"
+      }
+    ]
+  }
+})";
+
+// Marrowstone Island, Puget Sound WA (station KNUW, grid SEW/151,65)
+static const std::string marrowstone_island_forecast = R"({
+  "properties": {
+    "periods": [
+      {
+        "number": 1,
+        "name": "Today",
+        "startTime": "2025-06-15T06:00:00-07:00",
+        "isDaytime": true,
+        "temperature": 58,
+        "temperatureUnit": "F",
+        "shortForecast": "Fog"
+      },
+      {
+        "number": 2,
+        "name": "Tonight",
+        "startTime": "2025-06-15T18:00:00-07:00",
+        "isDaytime": false,
+        "temperature": 48,
+        "temperatureUnit": "F",
+        "shortForecast": "Partly Cloudy"
+      },
+      {
+        "number": 3,
+        "name": "Monday",
+        "startTime": "2025-06-16T06:00:00-07:00",
+        "isDaytime": true,
+        "temperature": 61,
+        "temperatureUnit": "F",
+        "shortForecast": "Mostly Cloudy"
+      },
+      {
+        "number": 4,
+        "name": "Monday Night",
+        "startTime": "2025-06-16T18:00:00-07:00",
+        "isDaytime": false,
+        "temperature": 46,
+        "temperatureUnit": "F",
+        "shortForecast": "Drizzle"
+      },
+      {
+        "number": 5,
+        "name": "Tuesday",
+        "startTime": "2025-06-17T06:00:00-07:00",
+        "isDaytime": true,
+        "temperature": 55,
+        "temperatureUnit": "F",
+        "shortForecast": "Rain Showers"
+      },
+      {
+        "number": 6,
+        "name": "Tuesday Night",
+        "startTime": "2025-06-17T18:00:00-07:00",
+        "isDaytime": false,
+        "temperature": 44,
+        "temperatureUnit": "F",
+        "shortForecast": "Clear"
+      },
+      {
+        "number": 7,
+        "name": "Wednesday",
+        "startTime": "2025-06-18T06:00:00-07:00",
+        "isDaytime": true,
+        "temperature": 63,
+        "temperatureUnit": "F",
+        "shortForecast": "Sunny"
+      }
+    ]
+  }
+})";
+
+// ---------------------------------------------------------------------------
+// temperature_unit_from_string
+// ---------------------------------------------------------------------------
+
+TEST_CASE("temperature_unit_from_string parses Celsius") {
+    CHECK(temperature_unit_from_string("wmoUnit:degC") == temperature_unit::celsius);
+}
+
+TEST_CASE("temperature_unit_from_string parses Fahrenheit") {
+    CHECK(temperature_unit_from_string("wmoUnit:degF") == temperature_unit::fahrenheit);
+}
+
+TEST_CASE("temperature_unit_from_string throws on unknown unit") {
+    CHECK_THROWS(temperature_unit_from_string("wmoUnit:degK"));
+    CHECK_THROWS(temperature_unit_from_string(""));
+    CHECK_THROWS(temperature_unit_from_string("celsius"));
+}
+
+// ---------------------------------------------------------------------------
+// temperature_unit_from_shortcode
+// ---------------------------------------------------------------------------
+
+TEST_CASE("temperature_unit_from_shortcode parses C") {
+    CHECK(temperature_unit_from_shortcode("C") == temperature_unit::celsius);
+}
+
+TEST_CASE("temperature_unit_from_shortcode parses F") {
+    CHECK(temperature_unit_from_shortcode("F") == temperature_unit::fahrenheit);
+}
+
+TEST_CASE("temperature_unit_from_shortcode throws on unknown shortcode") {
+    CHECK_THROWS(temperature_unit_from_shortcode("K"));
+    CHECK_THROWS(temperature_unit_from_shortcode(""));
+    CHECK_THROWS(temperature_unit_from_shortcode("fahrenheit"));
+}
+
+// ---------------------------------------------------------------------------
+// read_temperature_from_json
+// ---------------------------------------------------------------------------
+
+TEST_CASE("read_temperature_from_json reads Celsius temperature") {
+    json data = {{"unitCode", "wmoUnit:degC"}, {"value", 22.5}};
+    auto temp = read_temperature_from_json(data);
+    CHECK(temp.unit == temperature_unit::celsius);
+    CHECK(temp.value == doctest::Approx(22.5));
+}
+
+TEST_CASE("read_temperature_from_json reads Fahrenheit temperature") {
+    json data = {{"unitCode", "wmoUnit:degF"}, {"value", 72.0}};
+    auto temp = read_temperature_from_json(data);
+    CHECK(temp.unit == temperature_unit::fahrenheit);
+    CHECK(temp.value == doctest::Approx(72.0));
+}
+
+TEST_CASE("read_temperature_from_json reads zero temperature") {
+    json data = {{"unitCode", "wmoUnit:degC"}, {"value", 0.0}};
+    auto temp = read_temperature_from_json(data);
+    CHECK(temp.value == doctest::Approx(0.0));
+}
+
+TEST_CASE("read_temperature_from_json reads negative temperature") {
+    json data = {{"unitCode", "wmoUnit:degC"}, {"value", -15.3}};
+    auto temp = read_temperature_from_json(data);
+    CHECK(temp.unit == temperature_unit::celsius);
+    CHECK(temp.value == doctest::Approx(-15.3));
+}
+
+// ---------------------------------------------------------------------------
+// condition_from_string — valid conditions
+// ---------------------------------------------------------------------------
+
+TEST_CASE("condition_from_string maps clear conditions") {
+    CHECK(condition_from_string("Sunny") == overall_condition::clear);
+    CHECK(condition_from_string("Clear") == overall_condition::clear);
+    CHECK(condition_from_string("Mostly Clear") == overall_condition::clear);
+}
+
+TEST_CASE("condition_from_string maps partly cloudy conditions") {
+    CHECK(condition_from_string("Mostly Sunny") == overall_condition::partly_cloudy);
+    CHECK(condition_from_string("Partly Cloudy") == overall_condition::partly_cloudy);
+    CHECK(condition_from_string("Partly Sunny") == overall_condition::partly_cloudy);
+}
+
+TEST_CASE("condition_from_string maps cloudy conditions") {
+    CHECK(condition_from_string("Mostly Cloudy") == overall_condition::cloudy);
+    CHECK(condition_from_string("Cloudy") == overall_condition::cloudy);
+    CHECK(condition_from_string("Overcast") == overall_condition::cloudy);
+}
+
+TEST_CASE("condition_from_string maps misting conditions") {
+    CHECK(condition_from_string("Fog") == overall_condition::misting);
+    CHECK(condition_from_string("Haze") == overall_condition::misting);
+    CHECK(condition_from_string("Light Rain") == overall_condition::misting);
+    CHECK(condition_from_string("Drizzle") == overall_condition::misting);
+}
+
+TEST_CASE("condition_from_string maps raining conditions") {
+    CHECK(condition_from_string("Rain") == overall_condition::raining);
+    CHECK(condition_from_string("Heavy Rain") == overall_condition::raining);
+    CHECK(condition_from_string("Showers") == overall_condition::raining);
+    CHECK(condition_from_string("Thunderstorms") == overall_condition::raining);
+    CHECK(condition_from_string("Rain Showers") == overall_condition::raining);
+    CHECK(condition_from_string("Chance Rain Showers") == overall_condition::raining);
+}
+
+TEST_CASE("condition_from_string maps snowing conditions") {
+    CHECK(condition_from_string("Snow") == overall_condition::snowing);
+    CHECK(condition_from_string("Light Snow") == overall_condition::snowing);
+    CHECK(condition_from_string("Heavy Snow") == overall_condition::snowing);
+    CHECK(condition_from_string("Blizzard") == overall_condition::snowing);
+}
+
+TEST_CASE("condition_from_string throws on unrecognized condition") {
+    CHECK_THROWS(condition_from_string("Tornado"));
+    CHECK_THROWS(condition_from_string(""));
+    CHECK_THROWS(condition_from_string("sunny"));  // case sensitive
+}
+
+// ---------------------------------------------------------------------------
+// load_forecast — Washington Monument
+// ---------------------------------------------------------------------------
+
+TEST_CASE("load_forecast parses Washington Monument forecast") {
+    auto forecasts = load_forecast(washington_monument_forecast);
+
+    // Should extract 3 daytime periods
+    REQUIRE(forecasts.size() == 3);
+
+    // Today: 88°F, Sunny
+    CHECK(forecasts[0].temp.value == doctest::Approx(88.0));
+    CHECK(forecasts[0].temp.unit == temperature_unit::fahrenheit);
+    CHECK(forecasts[0].condition == overall_condition::clear);
+    CHECK(forecasts[0].timeframe == "2025-06-15T06:00:00-04:00");
+
+    // Monday: 91°F, Partly Cloudy
+    CHECK(forecasts[1].temp.value == doctest::Approx(91.0));
+    CHECK(forecasts[1].condition == overall_condition::partly_cloudy);
+
+    // Tuesday: 85°F, Thunderstorms
+    CHECK(forecasts[2].temp.value == doctest::Approx(85.0));
+    CHECK(forecasts[2].condition == overall_condition::raining);
+}
+
+// ---------------------------------------------------------------------------
+// load_forecast — Cal Anderson Park, Seattle
+// ---------------------------------------------------------------------------
+
+TEST_CASE("load_forecast parses Cal Anderson Park forecast") {
+    auto forecasts = load_forecast(cal_anderson_park_forecast);
+
+    REQUIRE(forecasts.size() == 3);
+
+    // Today: 65°F, Partly Sunny
+    CHECK(forecasts[0].temp.value == doctest::Approx(65.0));
+    CHECK(forecasts[0].condition == overall_condition::partly_cloudy);
+    CHECK(forecasts[0].timeframe == "2025-06-15T06:00:00-07:00");
+
+    // Monday: 62°F, Light Rain
+    CHECK(forecasts[1].temp.value == doctest::Approx(62.0));
+    CHECK(forecasts[1].condition == overall_condition::misting);
+
+    // Tuesday: 60°F, Mostly Sunny
+    CHECK(forecasts[2].temp.value == doctest::Approx(60.0));
+    CHECK(forecasts[2].condition == overall_condition::partly_cloudy);
+}
+
+// ---------------------------------------------------------------------------
+// load_forecast — Marrowstone Island, Puget Sound
+// ---------------------------------------------------------------------------
+
+TEST_CASE("load_forecast parses Marrowstone Island forecast") {
+    auto forecasts = load_forecast(marrowstone_island_forecast);
+
+    REQUIRE(forecasts.size() == 3);
+
+    // Today: 58°F, Fog
+    CHECK(forecasts[0].temp.value == doctest::Approx(58.0));
+    CHECK(forecasts[0].condition == overall_condition::misting);
+    CHECK(forecasts[0].timeframe == "2025-06-15T06:00:00-07:00");
+
+    // Monday: 61°F, Mostly Cloudy
+    CHECK(forecasts[1].temp.value == doctest::Approx(61.0));
+    CHECK(forecasts[1].condition == overall_condition::cloudy);
+
+    // Tuesday: 55°F, Rain Showers
+    CHECK(forecasts[2].temp.value == doctest::Approx(55.0));
+    CHECK(forecasts[2].condition == overall_condition::raining);
+}
+
+// ---------------------------------------------------------------------------
+// load_forecast — edge cases
+// ---------------------------------------------------------------------------
+
+TEST_CASE("load_forecast with no daytime periods returns empty") {
+    std::string no_daytime = R"({
+      "properties": {
+        "periods": [
+          {
+            "number": 1,
+            "name": "Tonight",
+            "startTime": "2025-06-15T18:00:00-04:00",
+            "isDaytime": false,
+            "temperature": 68,
+            "temperatureUnit": "F",
+            "shortForecast": "Clear"
+          }
+        ]
+      }
+    })";
+
+    auto forecasts = load_forecast(no_daytime);
+    CHECK(forecasts.empty());
+}
+
+TEST_CASE("load_forecast with fewer than 3 daytime periods returns what is available") {
+    std::string two_days = R"({
+      "properties": {
+        "periods": [
+          {
+            "number": 1,
+            "name": "Today",
+            "startTime": "2025-06-15T06:00:00-04:00",
+            "isDaytime": true,
+            "temperature": 75,
+            "temperatureUnit": "F",
+            "shortForecast": "Sunny"
+          },
+          {
+            "number": 2,
+            "name": "Tonight",
+            "startTime": "2025-06-15T18:00:00-04:00",
+            "isDaytime": false,
+            "temperature": 60,
+            "temperatureUnit": "F",
+            "shortForecast": "Clear"
+          },
+          {
+            "number": 3,
+            "name": "Monday",
+            "startTime": "2025-06-16T06:00:00-04:00",
+            "isDaytime": true,
+            "temperature": 78,
+            "temperatureUnit": "F",
+            "shortForecast": "Partly Cloudy"
+          }
+        ]
+      }
+    })";
+
+    auto forecasts = load_forecast(two_days);
+    CHECK(forecasts.size() == 2);
+}
+
+TEST_CASE("load_forecast throws on malformed JSON") {
+    CHECK_THROWS(load_forecast("not json at all"));
+    CHECK_THROWS(load_forecast("{\"incomplete"));
+}
+
+TEST_CASE("load_forecast returns empty on missing properties.periods") {
+    auto result1 = load_forecast(R"({"properties": {}})");
+    CHECK(result1.empty());
+
+    auto result2 = load_forecast(R"({})");
+    CHECK(result2.empty());
+}
+
+// ---------------------------------------------------------------------------
+// convert_condition_to_filename
+// ---------------------------------------------------------------------------
+
+TEST_CASE("convert_condition_to_filename maps all conditions") {
+    CHECK(convert_condition_to_filename(overall_condition::clear) == "sunny.svg");
+    CHECK(convert_condition_to_filename(overall_condition::cloudy) == "cloudy.svg");
+    CHECK(convert_condition_to_filename(overall_condition::partly_cloudy) == "partly-sunny.svg");
+    CHECK(convert_condition_to_filename(overall_condition::misting) == "light-rain.svg");
+    CHECK(convert_condition_to_filename(overall_condition::raining) == "raining.svg");
+    CHECK(convert_condition_to_filename(overall_condition::snowing) == "snowing.svg");
+}
+
+// ---------------------------------------------------------------------------
+// report_to_css — output safety
+// ---------------------------------------------------------------------------
+
+TEST_CASE("report_to_css produces well-formed CSS") {
+    status_report report{};
+    report.current_weather = {"2025-06-15T12:00:00", overall_condition::clear, {72.0f, temperature_unit::fahrenheit}};
+    report.upcoming_days = {
+        {"2025-06-16T06:00:00", overall_condition::partly_cloudy, {68.0f, temperature_unit::fahrenheit}},
+        {"2025-06-17T06:00:00", overall_condition::raining, {60.0f, temperature_unit::fahrenheit}},
+    };
+    report.uptime = std::chrono::seconds(3661);
+    report.battery_voltage = voltage<float>(12.8f);
+    report.is_charging = false;
+
+    std::ostringstream out;
+    int result = report_to_css(report, out);
+    CHECK(result == 0);
+
+    std::string css = out.str();
+
+    // Should contain expected CSS class selectors
+    CHECK(css.find(".weather-icon") != std::string::npos);
+    CHECK(css.find(".weather::after") != std::string::npos);
+    CHECK(css.find(".forecast-tomorrow-icon") != std::string::npos);
+    CHECK(css.find(".forecast-tomorrow::after") != std::string::npos);
+    CHECK(css.find(".forecast-overmorrow-icon") != std::string::npos);
+    CHECK(css.find(".forecast-overmorrow::after") != std::string::npos);
+    CHECK(css.find(".battery-icon") != std::string::npos);
+    CHECK(css.find(".battery-status::after") != std::string::npos);
+    CHECK(css.find(".uptime::after") != std::string::npos);
+
+    // Should reference correct SVG files
+    CHECK(css.find("sunny.svg") != std::string::npos);
+    CHECK(css.find("partly-sunny.svg") != std::string::npos);
+    CHECK(css.find("raining.svg") != std::string::npos);
+
+    // Battery should show non-charging icon
+    CHECK(css.find("battery-half.svg") != std::string::npos);
+}
+
+TEST_CASE("report_to_css shows charging icon when charging") {
+    status_report report{};
+    report.current_weather = {"2025-06-15T12:00:00", overall_condition::clear, {72.0f, temperature_unit::fahrenheit}};
+    report.upcoming_days = {
+        {"2025-06-16T06:00:00", overall_condition::clear, {68.0f, temperature_unit::fahrenheit}},
+        {"2025-06-17T06:00:00", overall_condition::clear, {70.0f, temperature_unit::fahrenheit}},
+    };
+    report.uptime = std::chrono::seconds(100);
+    report.battery_voltage = voltage<float>(13.2f);
+    report.is_charging = true;
+
+    std::ostringstream out;
+    report_to_css(report, out);
+    std::string css = out.str();
+
+    CHECK(css.find("battery-charging-half.svg") != std::string::npos);
+}
+
+TEST_CASE("report_to_css output contains no unescaped HTML tags") {
+    status_report report{};
+    report.current_weather = {"2025-06-15T12:00:00", overall_condition::clear, {72.0f, temperature_unit::fahrenheit}};
+    report.upcoming_days = {
+        {"2025-06-16T06:00:00", overall_condition::clear, {68.0f, temperature_unit::fahrenheit}},
+        {"2025-06-17T06:00:00", overall_condition::clear, {70.0f, temperature_unit::fahrenheit}},
+    };
+    report.uptime = std::chrono::seconds(0);
+    report.battery_voltage = voltage<float>(12.0f);
+    report.is_charging = false;
+
+    std::ostringstream out;
+    report_to_css(report, out);
+    std::string css = out.str();
+
+    // The CSS output should not contain raw HTML tags that could enable injection
+    CHECK(css.find("<script") == std::string::npos);
+    CHECK(css.find("<img") == std::string::npos);
+    CHECK(css.find("javascript:") == std::string::npos);
+}
+
+TEST_CASE("report_to_css formats uptime correctly") {
+    status_report report{};
+    report.current_weather = {"now", overall_condition::clear, {70.0f, temperature_unit::fahrenheit}};
+    report.upcoming_days = {
+        {"tomorrow", overall_condition::clear, {70.0f, temperature_unit::fahrenheit}},
+        {"overmorrow", overall_condition::clear, {70.0f, temperature_unit::fahrenheit}},
+    };
+    report.uptime = std::chrono::seconds(90061); // 25h 1m 1s
+    report.battery_voltage = voltage<float>(12.5f);
+    report.is_charging = false;
+
+    std::ostringstream out;
+    report_to_css(report, out);
+    std::string css = out.str();
+
+    // Uptime should be formatted as H:MM:SS via {:%T}
+    CHECK(css.find(".uptime::after") != std::string::npos);
+}
