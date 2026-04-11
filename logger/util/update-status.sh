@@ -8,12 +8,12 @@ NWS_GRID_OFFICE="${NWS_GRID_OFFICE:-SEW}"
 NWS_GRID_X="${NWS_GRID_X:-124}"
 NWS_GRID_Y="${NWS_GRID_Y:-69}"
 
-mkdir /temp/update-status && pushd /temp/update-status
+mkdir -p /temp/update-status && cd /temp/update-status || exit 1
 /srv/logger/logger \
     --station "$NWS_STATION" \
     --grid-office "$NWS_GRID_OFFICE" \
     --grid-x "$NWS_GRID_X" \
-    --grid-y "$NWS_GRID_Y"
+    --grid-y "$NWS_GRID_Y" || exit 1
 
 cp ./status.css /www/solar-site/css/status.css
 echo "Updated status.css"

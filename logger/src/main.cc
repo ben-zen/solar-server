@@ -56,9 +56,10 @@ int main(int argc, char **argv)
 
     // Acquire all major resources before running.
     curl_handle curl = curl_handle::create_handle();
-    std::fstream out_file{destination, std::ios::out | std::ios::trunc};
     
     auto report = generate_report(curl, location);
     std::cout << fmt::format("{}", report) << std::endl;
+
+    std::fstream out_file{destination, std::ios::out | std::ios::trunc};
     report_to_css(report, out_file);
 }
