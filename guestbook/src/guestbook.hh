@@ -136,9 +136,9 @@ inline int format_entry(const std::string &author,
     auto ts_seconds = std::chrono::floor<std::chrono::seconds>(timestamp);
 
     json front_matter{
+        {"author", author},
         {"date", fmt::format("{:%FT%T}", ts_seconds)},
-        {"params", json{{"author", author},{"location", location}}},
-        {"title", fmt::format("Guestbook entry from {}", author)},
+        {"location", location},
         {"type", "guestbook"}
     };
 

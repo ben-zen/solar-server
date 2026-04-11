@@ -161,11 +161,9 @@ TEST_CASE("format_entry produces valid JSON front matter") {
     std::string json_part = result.substr(0, double_newline);
     auto parsed = json::parse(json_part);
 
-    CHECK(parsed["params"]["author"] == "Alice");
-    CHECK(parsed["params"]["location"] == "Wonderland");
+    CHECK(parsed["author"] == "Alice");
+    CHECK(parsed["location"] == "Wonderland");
     CHECK(parsed.contains("date"));
-    CHECK(parsed.contains("title"));
-    CHECK(parsed["title"] == "Guestbook entry from Alice");
     CHECK(parsed["type"] == "guestbook");
 }
 
@@ -265,7 +263,7 @@ TEST_CASE("format_entry safely serializes HTML/script injection in author field"
 
     // nlohmann/json must escape angle brackets and quotes in the JSON string.
     auto parsed = json::parse(json_part);
-    CHECK(parsed["params"]["author"] == xss);
+    CHECK(parsed["author"] == xss);
 
     // The raw JSON text must not contain unescaped angle brackets that could be
     // interpreted as HTML.  nlohmann/json escapes < and > as Unicode escapes or
@@ -337,7 +335,7 @@ TEST_CASE("format_entry handles SQL injection attempt in author") {
 
     auto parsed = json::parse(json_part);
     // The injection string must be stored as a literal JSON string value.
-    CHECK(parsed["params"]["author"] == sqli);
+    CHECK(parsed["author"] == sqli);
 }
 
 // ---------------------------------------------------------------------------
@@ -380,7 +378,7 @@ TEST_CASE("format_entry preserves path traversal as literal text in JSON") {
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
     auto parsed = json::parse(result.substr(0, double_newline));
-    CHECK(parsed["params"]["author"] == "../../etc/passwd");
+    CHECK(parsed["author"] == "../../etc/passwd");
 }
 
 // ---------------------------------------------------------------------------
@@ -400,7 +398,7 @@ TEST_CASE("format_entry handles long field values") {
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
     auto parsed = json::parse(result.substr(0, double_newline));
-    CHECK(parsed["params"]["author"] == long_name);
+    CHECK(parsed["author"] == long_name);
 }
 
 // ---------------------------------------------------------------------------
@@ -418,7 +416,7 @@ TEST_CASE("format_entry safely handles JSON injection in author field") {
 
     auto parsed = json::parse(json_part);
     // The injected JSON must not create a new key; it must be a literal string.
-    CHECK(parsed["params"]["author"] == json_inject);
+    CHECK(parsed["author"] == json_inject);
     CHECK_FALSE(parsed.contains("evil"));
 }
 
@@ -430,8 +428,8 @@ TEST_CASE("format_entry safely handles JSON injection in location field") {
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
     auto parsed = json::parse(result.substr(0, double_newline));
-    CHECK(parsed["params"]["author"] == "safe");
-    CHECK(parsed["params"]["location"] == json_inject);
+    CHECK(parsed["author"] == "safe");
+    CHECK(parsed["location"] == json_inject);
 }
 
 // ---------------------------------------------------------------------------
@@ -452,8 +450,8 @@ TEST_CASE("format_entry handles UTF-8 in all fields") {
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
     auto parsed = json::parse(result.substr(0, double_newline));
-    CHECK(parsed["params"]["author"] == emoji);
-    CHECK(parsed["params"]["location"] == emoji);
+    CHECK(parsed["author"] == emoji);
+    CHECK(parsed["location"] == emoji);
 
     std::string body = result.substr(double_newline + 2);
     CHECK(body.find(emoji) != std::string::npos);
