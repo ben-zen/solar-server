@@ -1,0 +1,7 @@
+# Build artifacts
+logger/build/
+guestbook/build/
+
+# Hugo generated files
+website/public/
+website/.hugo_build.lock

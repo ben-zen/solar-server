@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang pkg-config meson ninja-build libfmt-dev libcurl4-openssl-dev hugo
+
+      - name: Configure logger
+        run: CC=clang CXX=clang++ meson setup build src
+        working-directory: logger
+
+      - name: Build logger
+        run: meson compile -C build
+        working-directory: logger
+
+      - name: Configure guestbook
+        run: CC=clang CXX=clang++ meson setup build src
+        working-directory: guestbook
+
+      - name: Build guestbook
+        run: meson compile -C build
+        working-directory: guestbook
+
+      - name: Build site
+        run: hugo
+        working-directory: website
+
+      - name: Bundle artifacts
+        if: github.event_name == 'push'
+        run: |
+          mkdir -p bundle/bin bundle/website
+          cp logger/build/logger bundle/bin/
+          cp guestbook/build/guestbook bundle/bin/
+          cp -r website/public bundle/website/
+
+      - name: Upload bundle
+        if: github.event_name == 'push'
+        uses: actions/upload-artifact@v7
+        with:
+          name: solar-server-bundle
+          path: bundle/
