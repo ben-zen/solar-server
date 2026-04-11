@@ -10,16 +10,16 @@ permissions:
   contents: read
 
 jobs:
-  build-logger:
-    name: Build Logger
+  build:
+    name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang pkg-config meson ninja-build libfmt-dev libcurl4-openssl-dev
+          sudo apt-get install -y clang pkg-config meson ninja-build libfmt-dev libcurl4-openssl-dev hugo
 
       - name: Configure logger
         run: CC=clang CXX=clang++ meson setup build src
@@ -29,17 +29,6 @@ jobs:
         run: meson compile -C build
         working-directory: logger
 
-  build-guestbook:
-    name: Build Guestbook
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang pkg-config meson ninja-build libfmt-dev
-
       - name: Configure guestbook
         run: CC=clang CXX=clang++ meson setup build src
         working-directory: guestbook
@@ -48,17 +37,19 @@ jobs:
         run: meson compile -C build
         working-directory: guestbook
 
-  build-website:
-    name: Build Hugo Site
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Hugo
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y hugo
-
       - name: Build site
         run: hugo
         working-directory: website
+
+      - name: Bundle artifacts
+        run: |
+          mkdir -p bundle/bin bundle/website
+          cp logger/build/logger bundle/bin/
+          cp guestbook/build/guestbook bundle/bin/
+          cp -r website/public bundle/website/
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: solar-server-bundle
+          path: bundle/
