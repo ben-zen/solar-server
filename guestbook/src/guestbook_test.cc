@@ -400,3 +400,189 @@ TEST_CASE("unpack_form_data handles encoded CRLF in message") {
     auto data = unpack_form_data(form);
     CHECK(data["message"] == "line1\r\nline2");
 }
+
+// ---------------------------------------------------------------------------
+// parse_content_length — validates CGI CONTENT_LENGTH env var
+// ---------------------------------------------------------------------------
+
+TEST_CASE("parse_content_length returns nullopt for nullptr") {
+    CHECK_FALSE(parse_content_length(nullptr).has_value());
+}
+
+TEST_CASE("parse_content_length returns nullopt for empty string") {
+    CHECK_FALSE(parse_content_length("").has_value());
+}
+
+TEST_CASE("parse_content_length parses valid small values") {
+    auto result = parse_content_length("124");
+    REQUIRE(result.has_value());
+    CHECK(result.value() == 124);
+}
+
+TEST_CASE("parse_content_length parses zero") {
+    auto result = parse_content_length("0");
+    REQUIRE(result.has_value());
+    CHECK(result.value() == 0);
+}
+
+TEST_CASE("parse_content_length rejects values exceeding max") {
+    // Max is 8192; anything larger should be rejected.
+    CHECK_FALSE(parse_content_length("10000").has_value());
+    CHECK_FALSE(parse_content_length("99999").has_value());
+}
+
+TEST_CASE("parse_content_length accepts value at the maximum") {
+    auto result = parse_content_length("8192");
+    REQUIRE(result.has_value());
+    CHECK(result.value() == 8192);
+}
+
+TEST_CASE("parse_content_length rejects non-numeric input") {
+    CHECK_FALSE(parse_content_length("abc").has_value());
+    CHECK_FALSE(parse_content_length("12abc").has_value());
+    CHECK_FALSE(parse_content_length("-1").has_value());
+}
+
+// ---------------------------------------------------------------------------
+// truncate_field — enforces max length on user input
+// ---------------------------------------------------------------------------
+
+TEST_CASE("truncate_field returns short string unchanged") {
+    CHECK(truncate_field("hello", 200) == "hello");
+}
+
+TEST_CASE("truncate_field truncates to max length") {
+    std::string long_str(300, 'A');
+    auto result = truncate_field(long_str, 200);
+    CHECK(result.size() == 200);
+    CHECK(result == std::string(200, 'A'));
+}
+
+TEST_CASE("truncate_field handles empty string") {
+    CHECK(truncate_field("", 200) == "");
+}
+
+TEST_CASE("truncate_field handles string exactly at limit") {
+    std::string exact(200, 'B');
+    CHECK(truncate_field(exact, 200) == exact);
+}
+
+// ---------------------------------------------------------------------------
+// validate_form_fields — checks required fields are present and within limits
+// ---------------------------------------------------------------------------
+
+TEST_CASE("validate_form_fields accepts valid form data") {
+    std::map<std::string, std::string> form = {
+        {"name", "Alice"}, {"location", "Seattle"}, {"message", "Hello!"}
+    };
+    auto result = validate_form_fields(form);
+    REQUIRE(result.has_value());
+    CHECK(result->at("name") == "Alice");
+    CHECK(result->at("location") == "Seattle");
+    CHECK(result->at("message") == "Hello!");
+}
+
+TEST_CASE("validate_form_fields rejects missing name") {
+    std::map<std::string, std::string> form = {
+        {"location", "Seattle"}, {"message", "Hello!"}
+    };
+    CHECK_FALSE(validate_form_fields(form).has_value());
+}
+
+TEST_CASE("validate_form_fields rejects missing message") {
+    std::map<std::string, std::string> form = {
+        {"name", "Alice"}, {"location", "Seattle"}
+    };
+    CHECK_FALSE(validate_form_fields(form).has_value());
+}
+
+TEST_CASE("validate_form_fields allows missing location") {
+    std::map<std::string, std::string> form = {
+        {"name", "Alice"}, {"message", "Hello!"}
+    };
+    auto result = validate_form_fields(form);
+    REQUIRE(result.has_value());
+    CHECK(result->at("location") == "");
+}
+
+TEST_CASE("validate_form_fields rejects empty name") {
+    std::map<std::string, std::string> form = {
+        {"name", ""}, {"location", "here"}, {"message", "Hello!"}
+    };
+    CHECK_FALSE(validate_form_fields(form).has_value());
+}
+
+TEST_CASE("validate_form_fields rejects empty message") {
+    std::map<std::string, std::string> form = {
+        {"name", "Alice"}, {"location", "here"}, {"message", ""}
+    };
+    CHECK_FALSE(validate_form_fields(form).has_value());
+}
+
+TEST_CASE("validate_form_fields truncates long fields") {
+    std::map<std::string, std::string> form = {
+        {"name", std::string(300, 'X')},
+        {"location", std::string(300, 'Y')},
+        {"message", std::string(3000, 'Z')}
+    };
+    auto result = validate_form_fields(form);
+    REQUIRE(result.has_value());
+    CHECK(result->at("name").size() == max_author_length);
+    CHECK(result->at("location").size() == max_location_length);
+    CHECK(result->at("message").size() == max_message_length);
+}
+
+// ---------------------------------------------------------------------------
+// read_cgi_input — reads exactly content_length bytes from a stream
+// ---------------------------------------------------------------------------
+
+TEST_CASE("read_cgi_input reads exact number of bytes") {
+    std::istringstream input("name=Alice&location=Seattle&message=Hi");
+    auto result = read_cgi_input(input, 38);
+    CHECK(result == "name=Alice&location=Seattle&message=Hi");
+}
+
+TEST_CASE("read_cgi_input reads partial content when stream is shorter") {
+    std::istringstream input("short");
+    auto result = read_cgi_input(input, 100);
+    CHECK(result == "short");
+}
+
+TEST_CASE("read_cgi_input reads zero bytes") {
+    std::istringstream input("anything");
+    auto result = read_cgi_input(input, 0);
+    CHECK(result == "");
+}
+
+// ---------------------------------------------------------------------------
+// generate_cgi_redirect — produces a proper CGI redirect response
+// ---------------------------------------------------------------------------
+
+TEST_CASE("generate_cgi_redirect produces valid CGI headers") {
+    auto response = generate_cgi_redirect("/");
+    CHECK(response.find("Status: 303 See Other") != std::string::npos);
+    CHECK(response.find("Location: /") != std::string::npos);
+    // Must end with blank line (double CRLF or double LF).
+    CHECK(response.find("\r\n\r\n") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_redirect uses the provided URL") {
+    auto response = generate_cgi_redirect("/guestbook");
+    CHECK(response.find("Location: /guestbook") != std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// generate_cgi_error — produces a proper CGI error response
+// ---------------------------------------------------------------------------
+
+TEST_CASE("generate_cgi_error produces 400 response") {
+    auto response = generate_cgi_error(400, "Bad Request");
+    CHECK(response.find("Status: 400 Bad Request") != std::string::npos);
+    CHECK(response.find("Content-Type: text/html") != std::string::npos);
+    CHECK(response.find("Bad Request") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_error produces 413 response") {
+    auto response = generate_cgi_error(413, "Payload Too Large");
+    CHECK(response.find("Status: 413 Payload Too Large") != std::string::npos);
+}

@@ -4,10 +4,12 @@
 #pragma once
 
 #include <cctype>
+#include <charconv>
 #include <chrono>
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -17,6 +19,15 @@
 #include <json.hpp>
 
 using json = nlohmann::json;
+
+// ---------------------------------------------------------------------------
+// Input limits
+// ---------------------------------------------------------------------------
+
+constexpr size_t max_content_length = 8192;
+constexpr size_t max_author_length = 200;
+constexpr size_t max_location_length = 200;
+constexpr size_t max_message_length = 2000;
 
 // The |application/x-www-form-urlencoded percent-encode set| contains all code points except:
 // * Alphanumerics
@@ -131,4 +142,100 @@ inline int format_entry(const std::string &author,
     output << front_matter << std::endl << std::endl << message << std::endl;
 
     return 0;
+}
+
+// ---------------------------------------------------------------------------
+// CGI helper functions
+// ---------------------------------------------------------------------------
+
+// Parses and validates the CONTENT_LENGTH CGI environment variable.
+// Returns std::nullopt if the value is null, empty, non-numeric, negative,
+// or exceeds max_content_length.
+inline std::optional<size_t> parse_content_length(const char *env_value) {
+    if (env_value == nullptr || *env_value == '\0') {
+        return std::nullopt;
+    }
+
+    std::string_view sv{env_value};
+
+    // Reject negative values (leading minus sign).
+    if (sv.front() == '-') {
+        return std::nullopt;
+    }
+
+    size_t value{};
+    auto [ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.size(), value);
+    if (ec != std::errc{} || ptr != sv.data() + sv.size()) {
+        return std::nullopt;
+    }
+
+    if (value > max_content_length) {
+        return std::nullopt;
+    }
+
+    return value;
+}
+
+// Truncates a string to the given maximum length.
+inline std::string truncate_field(const std::string &value, size_t max_length) {
+    if (value.size() <= max_length) {
+        return value;
+    }
+    return value.substr(0, max_length);
+}
+
+// Validates required form fields are present and non-empty (name, message),
+// truncates all fields to their respective max lengths, and returns the
+// sanitized fields. Location is optional (defaults to empty).
+// Returns std::nullopt if validation fails.
+inline std::optional<std::map<std::string, std::string>> validate_form_fields(
+        const std::map<std::string, std::string> &form_data) {
+
+    auto name_it = form_data.find("name");
+    if (name_it == form_data.end() || name_it->second.empty()) {
+        return std::nullopt;
+    }
+
+    auto message_it = form_data.find("message");
+    if (message_it == form_data.end() || message_it->second.empty()) {
+        return std::nullopt;
+    }
+
+    std::string location{};
+    auto location_it = form_data.find("location");
+    if (location_it != form_data.end()) {
+        location = location_it->second;
+    }
+
+    std::map<std::string, std::string> result;
+    result["name"] = truncate_field(name_it->second, max_author_length);
+    result["location"] = truncate_field(location, max_location_length);
+    result["message"] = truncate_field(message_it->second, max_message_length);
+    return result;
+}
+
+// Reads exactly content_length bytes from the given input stream.
+inline std::string read_cgi_input(std::istream &input, size_t content_length) {
+    if (content_length == 0) {
+        return "";
+    }
+    std::string buffer(content_length, '\0');
+    input.read(buffer.data(), static_cast<std::streamsize>(content_length));
+    buffer.resize(static_cast<size_t>(input.gcount()));
+    return buffer;
+}
+
+// Generates a CGI 303 redirect response to the given URL.
+inline std::string generate_cgi_redirect(const std::string &redirect_url) {
+    return fmt::format("Status: 303 See Other\r\nLocation: {}\r\n\r\n", redirect_url);
+}
+
+// Generates a CGI error response with the given status code and message.
+inline std::string generate_cgi_error(int status_code, const std::string &message) {
+    return fmt::format(
+        "Status: {} {}\r\n"
+        "Content-Type: text/html\r\n"
+        "\r\n"
+        "<html><body><h1>{}</h1><p><a href=\"/\">Return to site</a></p></body></html>\n",
+        status_code, message, message);
 }
