@@ -26,7 +26,13 @@ clean:
     {{ just }} website clean
 
 # Deploy everything to the local machine (requires root)
-deploy:
+deploy: deploy-lighttpd
     {{ just }} logger deploy
     {{ just }} guestbook deploy
     {{ just }} website deploy
+
+# Install and configure lighttpd for the solar-server project (requires root)
+deploy-lighttpd:
+    install -d /etc/lighttpd/conf-enabled
+    install -m 644 lighttpd/solar-server.conf /etc/lighttpd/conf-enabled/90-solar-server.conf
+    systemctl restart lighttpd
