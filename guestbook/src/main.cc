@@ -74,7 +74,9 @@ int main(int argc, char **argv) {
     // If CONTENT_LENGTH is set but invalid/too large, return a CGI error.
     if (content_length_env != nullptr && !content_length.has_value()) {
         err << fmt::format("CGI error: invalid or oversized CONTENT_LENGTH: {}\n", content_length_env);
-        std::cout << generate_cgi_error(413, "Payload Too Large");
+        std::cout << generate_cgi_error(HttpStatus::payload_too_large,
+                                        fmt::format("CONTENT_LENGTH value '{}' is invalid or exceeds the {} byte limit",
+                                                    content_length_env, max_content_length));
         return 1;
     }
 
@@ -83,7 +85,8 @@ int main(int argc, char **argv) {
 
         if (content_length.value() == 0) {
             err << fmt::format("CGI error: CONTENT_LENGTH is zero\n");
-            std::cout << generate_cgi_error(400, "Bad Request");
+            std::cout << generate_cgi_error(HttpStatus::bad_request,
+                                            "Request body is empty (CONTENT_LENGTH is 0)");
             return 1;
         }
 
@@ -93,7 +96,8 @@ int main(int argc, char **argv) {
         auto validated = validate_form_fields(form_data);
         if (!validated.has_value()) {
             err << fmt::format("CGI error: form validation failed (missing or empty name/message)\n");
-            std::cout << generate_cgi_error(400, "Bad Request");
+            std::cout << generate_cgi_error(HttpStatus::bad_request,
+                                            "Missing required fields: both 'name' and 'message' must be provided and non-empty");
             return 1;
         }
 

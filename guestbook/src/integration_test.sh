@@ -84,6 +84,7 @@ assert_stdout_contains "cgi-zero-400" "Status: 400 Bad Request" "$stdout"
 echo "--- CGI mode: oversized content length returns 413 ---"
 stdout=$(echo -n "" | CONTENT_LENGTH=99999 "$GUESTBOOK" 2>/dev/null) || true
 assert_stdout_contains "cgi-oversize-413" "Status: 413 Payload Too Large" "$stdout"
+assert_stdout_contains "cgi-oversize-413-detail" "invalid or exceeds" "$stdout"
 
 echo "--- CGI mode: non-numeric content length returns 413 ---"
 stdout=$(echo -n "" | CONTENT_LENGTH=abc "$GUESTBOOK" 2>/dev/null) || true
@@ -93,11 +94,17 @@ echo "--- CGI mode: missing required field (no message) returns 400 ---"
 stdout=$(echo -n "name=Alice&location=here" \
     | CONTENT_LENGTH=24 "$GUESTBOOK" 2>/dev/null) || true
 assert_stdout_contains "cgi-missing-message-400" "Status: 400 Bad Request" "$stdout"
+assert_stdout_contains "cgi-missing-message-detail" "name" "$stdout"
 
 echo "--- CGI mode: missing name returns 400 ---"
 stdout=$(echo -n "location=here&message=test" \
     | CONTENT_LENGTH=25 "$GUESTBOOK" 2>/dev/null) || true
 assert_stdout_contains "cgi-missing-name-400" "Status: 400 Bad Request" "$stdout"
+assert_stdout_contains "cgi-missing-name-detail" "name" "$stdout"
+
+echo "--- CGI mode: zero content returns 400 with detail ---"
+stdout=$(echo -n "" | CONTENT_LENGTH=0 "$GUESTBOOK" 2>/dev/null) || true
+assert_stdout_contains "cgi-zero-400-detail" "empty" "$stdout"
 
 echo "--- CGI mode: stderr logs when LOGBOOK is not set ---"
 stderr_text=$(echo -n "name=Alice&message=Hello" \

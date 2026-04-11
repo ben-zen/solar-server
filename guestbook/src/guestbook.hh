@@ -148,6 +148,29 @@ inline int format_entry(const std::string &author,
 // CGI helper functions
 // ---------------------------------------------------------------------------
 
+// HTTP status codes used in CGI responses.
+enum class HttpStatus {
+    ok                  = 200,
+    see_other           = 303,
+    bad_request         = 400,
+    not_found           = 404,
+    payload_too_large   = 413,
+    internal_error      = 500,
+};
+
+// Returns the standard reason phrase for a given HTTP status code.
+inline std::string_view status_phrase(HttpStatus code) {
+    switch (code) {
+        case HttpStatus::ok:                return "OK";
+        case HttpStatus::see_other:         return "See Other";
+        case HttpStatus::bad_request:       return "Bad Request";
+        case HttpStatus::not_found:         return "Not Found";
+        case HttpStatus::payload_too_large: return "Payload Too Large";
+        case HttpStatus::internal_error:    return "Internal Server Error";
+    }
+    return "Unknown";
+}
+
 // Parses and validates the CONTENT_LENGTH CGI environment variable.
 // Returns std::nullopt if the value is null, empty, non-numeric, negative,
 // or exceeds max_content_length.
@@ -220,17 +243,46 @@ inline std::string read_cgi_input(std::istream &input, size_t content_length) {
     return buffer;
 }
 
-// Generates a CGI 303 redirect response to the given URL.
-inline std::string generate_cgi_redirect(const std::string &redirect_url) {
-    return fmt::format("Status: 303 See Other\r\nLocation: {}\r\n\r\n", redirect_url);
+// Builds a complete CGI response with a Status header, optional extra headers,
+// and an optional body.  This is the single response-building primitive in the
+// codebase; every other response helper wraps this function.
+inline std::string generate_cgi_response(HttpStatus code,
+                                         const std::string &extra_headers = "",
+                                         const std::string &body = "") {
+    std::string response = fmt::format("Status: {} {}\r\n",
+                                       static_cast<int>(code),
+                                       status_phrase(code));
+    if (!extra_headers.empty()) {
+        response += extra_headers;
+    }
+    response += "\r\n";
+    if (!body.empty()) {
+        response += body;
+    }
+    return response;
 }
 
-// Generates a CGI error response with the given status code and message.
-inline std::string generate_cgi_error(int status_code, const std::string &message) {
-    return fmt::format(
-        "Status: {} {}\r\n"
-        "Content-Type: text/html\r\n"
-        "\r\n"
-        "<html><body><h1>{}</h1><p><a href=\"/\">Return to site</a></p></body></html>\n",
-        status_code, message, message);
+// Generates a CGI 303 redirect response to the given URL.
+inline std::string generate_cgi_redirect(const std::string &redirect_url) {
+    return generate_cgi_response(HttpStatus::see_other,
+                                 fmt::format("Location: {}\r\n", redirect_url));
+}
+
+// Generates a CGI error response.  |detail| lets callers describe what
+// specifically went wrong so end users (and server logs) get useful context.
+inline std::string generate_cgi_error(HttpStatus code,
+                                      const std::string &detail = "") {
+    auto phrase = status_phrase(code);
+    std::string body_detail = detail.empty()
+        ? std::string(phrase)
+        : fmt::format("{}: {}", phrase, detail);
+
+    std::string body = fmt::format(
+        "<html><body><h1>{}</h1><p>{}</p>"
+        "<p><a href=\"/\">Return to site</a></p></body></html>\n",
+        phrase, body_detail);
+
+    return generate_cgi_response(code,
+                                 "Content-Type: text/html\r\n",
+                                 body);
 }

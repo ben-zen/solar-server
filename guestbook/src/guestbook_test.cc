@@ -555,6 +555,43 @@ TEST_CASE("read_cgi_input reads zero bytes") {
 }
 
 // ---------------------------------------------------------------------------
+// HttpStatus enum class and status_phrase
+// ---------------------------------------------------------------------------
+
+TEST_CASE("status_phrase returns correct phrase for each HttpStatus") {
+    CHECK(status_phrase(HttpStatus::ok) == "OK");
+    CHECK(status_phrase(HttpStatus::see_other) == "See Other");
+    CHECK(status_phrase(HttpStatus::bad_request) == "Bad Request");
+    CHECK(status_phrase(HttpStatus::not_found) == "Not Found");
+    CHECK(status_phrase(HttpStatus::payload_too_large) == "Payload Too Large");
+    CHECK(status_phrase(HttpStatus::internal_error) == "Internal Server Error");
+}
+
+// ---------------------------------------------------------------------------
+// generate_cgi_response — the single response-building primitive
+// ---------------------------------------------------------------------------
+
+TEST_CASE("generate_cgi_response produces status line and blank-line terminator") {
+    auto response = generate_cgi_response(HttpStatus::ok);
+    CHECK(response.find("Status: 200 OK") != std::string::npos);
+    CHECK(response.find("\r\n\r\n") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_response includes extra headers") {
+    auto response = generate_cgi_response(HttpStatus::ok,
+                                          "X-Custom: value\r\n");
+    CHECK(response.find("X-Custom: value") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_response includes body after blank line") {
+    auto response = generate_cgi_response(HttpStatus::ok, "", "hello");
+    // Body follows the blank line separator.
+    auto sep = response.find("\r\n\r\n");
+    REQUIRE(sep != std::string::npos);
+    CHECK(response.substr(sep + 4) == "hello");
+}
+
+// ---------------------------------------------------------------------------
 // generate_cgi_redirect — produces a proper CGI redirect response
 // ---------------------------------------------------------------------------
 
@@ -576,13 +613,26 @@ TEST_CASE("generate_cgi_redirect uses the provided URL") {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("generate_cgi_error produces 400 response") {
-    auto response = generate_cgi_error(400, "Bad Request");
+    auto response = generate_cgi_error(HttpStatus::bad_request);
     CHECK(response.find("Status: 400 Bad Request") != std::string::npos);
     CHECK(response.find("Content-Type: text/html") != std::string::npos);
     CHECK(response.find("Bad Request") != std::string::npos);
 }
 
 TEST_CASE("generate_cgi_error produces 413 response") {
-    auto response = generate_cgi_error(413, "Payload Too Large");
+    auto response = generate_cgi_error(HttpStatus::payload_too_large);
     CHECK(response.find("Status: 413 Payload Too Large") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_error includes detail in body") {
+    auto response = generate_cgi_error(HttpStatus::bad_request,
+                                       "name field is missing");
+    CHECK(response.find("name field is missing") != std::string::npos);
+    // The phrase is still in the heading.
+    CHECK(response.find("<h1>Bad Request</h1>") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_error without detail uses phrase as body text") {
+    auto response = generate_cgi_error(HttpStatus::payload_too_large);
+    CHECK(response.find("<p>Payload Too Large</p>") != std::string::npos);
 }
