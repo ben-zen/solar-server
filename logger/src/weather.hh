@@ -11,6 +11,16 @@
 
 #include "include_ext/json.hpp"
 
+// NWS API location parameters used to construct observation and forecast URLs.
+// Station is the ICAO station identifier (e.g., "KBFI").
+// Grid office, x, and y identify the forecast grid point (e.g., "SEW", 124, 69).
+struct nws_location {
+    std::string station;
+    std::string grid_office;
+    int grid_x;
+    int grid_y;
+};
+
 enum class overall_condition {
     clear,
     partly_cloudy,
@@ -107,13 +117,14 @@ struct fmt::formatter<std::vector<daytime_forecast>> : fmt::formatter<std::strin
 
 class weather_loader {
 public:
-  weather_loader(curl_handle &curl);
+  weather_loader(curl_handle &curl, const nws_location &location);
 
   std::vector<daytime_forecast> get_forecast();
   daytime_forecast get_current_observation();
 
 private:
   curl_handle m_curl;
+  nws_location m_location;
 
   CURLcode nws_api_call(std::string &url_str, std::string *buffer);
 

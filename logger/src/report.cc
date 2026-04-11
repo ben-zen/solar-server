@@ -4,7 +4,7 @@
 
 #include "report.hh"
 
-status_report generate_report(curl_handle &curl)
+status_report generate_report(curl_handle &curl, const nws_location &location)
 {
     status_report report{};
     struct sysinfo s_info{};
@@ -20,7 +20,7 @@ status_report generate_report(curl_handle &curl)
         report.uptime = std::move(uptime);
     }
 
-    weather_loader weather{curl};
+    weather_loader weather{curl, location};
 
     auto forecast = weather.get_forecast();
 

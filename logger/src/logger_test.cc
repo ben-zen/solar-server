@@ -23,6 +23,8 @@ temperature read_temperature_from_json(nlohmann::json &data);
 overall_condition condition_from_string(const std::string &str);
 std::vector<daytime_forecast> load_forecast(const std::string &forecast_response);
 std::string convert_condition_to_filename(overall_condition condition);
+std::string make_observation_url(const nws_location &location);
+std::string make_forecast_url(const nws_location &location);
 
 // ---------------------------------------------------------------------------
 // Sample NWS API forecast responses for three locations.
@@ -892,4 +894,42 @@ TEST_CASE("report_to_css formats uptime correctly") {
 
     // Uptime should be formatted as H:MM:SS via {:%T}
     CHECK(css.find(".uptime::after") != std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// make_observation_url — URL generation from nws_location
+// ---------------------------------------------------------------------------
+
+TEST_CASE("make_observation_url constructs correct URL for Seattle (KBFI)") {
+    nws_location loc{"KBFI", "SEW", 124, 69};
+    CHECK(make_observation_url(loc) == "https://api.weather.gov/stations/KBFI/observations/latest");
+}
+
+TEST_CASE("make_observation_url constructs correct URL for Washington DC (KDCA)") {
+    nws_location loc{"KDCA", "LWX", 97, 71};
+    CHECK(make_observation_url(loc) == "https://api.weather.gov/stations/KDCA/observations/latest");
+}
+
+TEST_CASE("make_observation_url constructs correct URL for Marrowstone Island (K0S9)") {
+    nws_location loc{"K0S9", "SEW", 118, 92};
+    CHECK(make_observation_url(loc) == "https://api.weather.gov/stations/K0S9/observations/latest");
+}
+
+// ---------------------------------------------------------------------------
+// make_forecast_url — URL generation from nws_location
+// ---------------------------------------------------------------------------
+
+TEST_CASE("make_forecast_url constructs correct URL for Seattle") {
+    nws_location loc{"KBFI", "SEW", 124, 69};
+    CHECK(make_forecast_url(loc) == "https://api.weather.gov/gridpoints/SEW/124,69/forecast");
+}
+
+TEST_CASE("make_forecast_url constructs correct URL for Washington DC") {
+    nws_location loc{"KDCA", "LWX", 97, 71};
+    CHECK(make_forecast_url(loc) == "https://api.weather.gov/gridpoints/LWX/97,71/forecast");
+}
+
+TEST_CASE("make_forecast_url constructs correct URL for Marrowstone Island") {
+    nws_location loc{"K0S9", "SEW", 118, 92};
+    CHECK(make_forecast_url(loc) == "https://api.weather.gov/gridpoints/SEW/118,92/forecast");
 }

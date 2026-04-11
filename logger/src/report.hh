@@ -46,4 +46,4 @@ R"(report:
     }
 };
 
-status_report generate_report(curl_handle &curl);
+status_report generate_report(curl_handle &curl, const nws_location &location);
