@@ -400,3 +400,398 @@ TEST_CASE("unpack_form_data handles encoded CRLF in message") {
     auto data = unpack_form_data(form);
     CHECK(data["message"] == "line1\r\nline2");
 }
+
+// ---------------------------------------------------------------------------
+// parse_content_length — validates CGI CONTENT_LENGTH env var
+// ---------------------------------------------------------------------------
+
+TEST_CASE("parse_content_length returns nullopt for nullptr") {
+    CHECK_FALSE(parse_content_length(nullptr).has_value());
+}
+
+TEST_CASE("parse_content_length returns nullopt for empty string") {
+    CHECK_FALSE(parse_content_length("").has_value());
+}
+
+TEST_CASE("parse_content_length parses valid small values") {
+    auto result = parse_content_length("124");
+    REQUIRE(result.has_value());
+    CHECK(result.value() == 124);
+}
+
+TEST_CASE("parse_content_length parses zero") {
+    auto result = parse_content_length("0");
+    REQUIRE(result.has_value());
+    CHECK(result.value() == 0);
+}
+
+TEST_CASE("parse_content_length rejects values exceeding max") {
+    // Max is 8192; anything larger should be rejected.
+    CHECK_FALSE(parse_content_length("10000").has_value());
+    CHECK_FALSE(parse_content_length("99999").has_value());
+}
+
+TEST_CASE("parse_content_length accepts value at the maximum") {
+    auto result = parse_content_length("8192");
+    REQUIRE(result.has_value());
+    CHECK(result.value() == 8192);
+}
+
+TEST_CASE("parse_content_length rejects non-numeric input") {
+    CHECK_FALSE(parse_content_length("abc").has_value());
+    CHECK_FALSE(parse_content_length("12abc").has_value());
+    CHECK_FALSE(parse_content_length("-1").has_value());
+}
+
+// ---------------------------------------------------------------------------
+// truncate_field — enforces max length on user input
+// ---------------------------------------------------------------------------
+
+TEST_CASE("truncate_field returns short string unchanged") {
+    CHECK(truncate_field("hello", 200) == "hello");
+}
+
+TEST_CASE("truncate_field truncates to max length") {
+    std::string long_str(300, 'A');
+    auto result = truncate_field(long_str, 200);
+    CHECK(result.size() == 200);
+    CHECK(result == std::string(200, 'A'));
+}
+
+TEST_CASE("truncate_field handles empty string") {
+    CHECK(truncate_field("", 200) == "");
+}
+
+TEST_CASE("truncate_field handles string exactly at limit") {
+    std::string exact(200, 'B');
+    CHECK(truncate_field(exact, 200) == exact);
+}
+
+// ---------------------------------------------------------------------------
+// validate_form_fields — checks required fields are present and within limits
+// ---------------------------------------------------------------------------
+
+TEST_CASE("validate_form_fields accepts valid form data") {
+    std::map<std::string, std::string> form = {
+        {"name", "Alice"}, {"location", "Seattle"}, {"message", "Hello!"}
+    };
+    auto result = validate_form_fields(form);
+    REQUIRE(result.has_value());
+    CHECK(result->at("name") == "Alice");
+    CHECK(result->at("location") == "Seattle");
+    CHECK(result->at("message") == "Hello!");
+}
+
+TEST_CASE("validate_form_fields rejects missing name") {
+    std::map<std::string, std::string> form = {
+        {"location", "Seattle"}, {"message", "Hello!"}
+    };
+    CHECK_FALSE(validate_form_fields(form).has_value());
+}
+
+TEST_CASE("validate_form_fields rejects missing message") {
+    std::map<std::string, std::string> form = {
+        {"name", "Alice"}, {"location", "Seattle"}
+    };
+    CHECK_FALSE(validate_form_fields(form).has_value());
+}
+
+TEST_CASE("validate_form_fields allows missing location") {
+    std::map<std::string, std::string> form = {
+        {"name", "Alice"}, {"message", "Hello!"}
+    };
+    auto result = validate_form_fields(form);
+    REQUIRE(result.has_value());
+    CHECK(result->at("location") == "");
+}
+
+TEST_CASE("validate_form_fields rejects empty name") {
+    std::map<std::string, std::string> form = {
+        {"name", ""}, {"location", "here"}, {"message", "Hello!"}
+    };
+    CHECK_FALSE(validate_form_fields(form).has_value());
+}
+
+TEST_CASE("validate_form_fields rejects empty message") {
+    std::map<std::string, std::string> form = {
+        {"name", "Alice"}, {"location", "here"}, {"message", ""}
+    };
+    CHECK_FALSE(validate_form_fields(form).has_value());
+}
+
+TEST_CASE("validate_form_fields truncates long fields") {
+    std::map<std::string, std::string> form = {
+        {"name", std::string(300, 'X')},
+        {"location", std::string(300, 'Y')},
+        {"message", std::string(3000, 'Z')}
+    };
+    auto result = validate_form_fields(form);
+    REQUIRE(result.has_value());
+    CHECK(result->at("name").size() == max_author_length);
+    CHECK(result->at("location").size() == max_location_length);
+    CHECK(result->at("message").size() == max_message_length);
+}
+
+// ---------------------------------------------------------------------------
+// read_cgi_input — reads exactly content_length bytes from a stream
+// ---------------------------------------------------------------------------
+
+TEST_CASE("read_cgi_input reads exact number of bytes") {
+    std::istringstream input("name=Alice&location=Seattle&message=Hi");
+    auto result = read_cgi_input(input, 38);
+    CHECK(result == "name=Alice&location=Seattle&message=Hi");
+}
+
+TEST_CASE("read_cgi_input reads partial content when stream is shorter") {
+    std::istringstream input("short");
+    auto result = read_cgi_input(input, 100);
+    CHECK(result == "short");
+}
+
+TEST_CASE("read_cgi_input reads zero bytes") {
+    std::istringstream input("anything");
+    auto result = read_cgi_input(input, 0);
+    CHECK(result == "");
+}
+
+// ---------------------------------------------------------------------------
+// HttpStatus enum class and status_phrase
+// ---------------------------------------------------------------------------
+
+TEST_CASE("status_phrase returns correct phrase for each HttpStatus") {
+    CHECK(status_phrase(HttpStatus::ok) == "OK");
+    CHECK(status_phrase(HttpStatus::see_other) == "See Other");
+    CHECK(status_phrase(HttpStatus::bad_request) == "Bad Request");
+    CHECK(status_phrase(HttpStatus::not_found) == "Not Found");
+    CHECK(status_phrase(HttpStatus::payload_too_large) == "Payload Too Large");
+    CHECK(status_phrase(HttpStatus::enhance_your_calm) == "Enhance Your Calm");
+    CHECK(status_phrase(HttpStatus::internal_error) == "Internal Server Error");
+}
+
+// ---------------------------------------------------------------------------
+// generate_cgi_response — the single response-building primitive
+// ---------------------------------------------------------------------------
+
+TEST_CASE("generate_cgi_response produces status line and blank-line terminator") {
+    auto response = generate_cgi_response(HttpStatus::ok);
+    CHECK(response.find("Status: 200 OK") != std::string::npos);
+    CHECK(response.find("\r\n\r\n") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_response includes extra headers") {
+    auto response = generate_cgi_response(HttpStatus::ok,
+                                          "X-Custom: value\r\n");
+    CHECK(response.find("X-Custom: value") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_response includes body after blank line") {
+    auto response = generate_cgi_response(HttpStatus::ok, "", "hello");
+    // Body follows the blank line separator.
+    auto sep = response.find("\r\n\r\n");
+    REQUIRE(sep != std::string::npos);
+    CHECK(response.substr(sep + 4) == "hello");
+}
+
+// ---------------------------------------------------------------------------
+// generate_cgi_redirect — produces a proper CGI redirect response
+// ---------------------------------------------------------------------------
+
+TEST_CASE("generate_cgi_redirect produces valid CGI headers") {
+    auto response = generate_cgi_redirect("/");
+    CHECK(response.find("Status: 303 See Other") != std::string::npos);
+    CHECK(response.find("Location: /") != std::string::npos);
+    // Must end with blank line (double CRLF or double LF).
+    CHECK(response.find("\r\n\r\n") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_redirect uses the provided URL") {
+    auto response = generate_cgi_redirect("/guestbook");
+    CHECK(response.find("Location: /guestbook") != std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// generate_cgi_error — produces a proper CGI error response
+// ---------------------------------------------------------------------------
+
+TEST_CASE("generate_cgi_error produces 400 response") {
+    auto response = generate_cgi_error(HttpStatus::bad_request);
+    CHECK(response.find("Status: 400 Bad Request") != std::string::npos);
+    CHECK(response.find("Content-Type: text/html") != std::string::npos);
+    CHECK(response.find("Bad Request") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_error produces 413 response") {
+    auto response = generate_cgi_error(HttpStatus::payload_too_large);
+    CHECK(response.find("Status: 413 Payload Too Large") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_error includes detail in body") {
+    auto response = generate_cgi_error(HttpStatus::bad_request,
+                                       "name field is missing");
+    CHECK(response.find("name field is missing") != std::string::npos);
+    // The phrase is still in the heading.
+    CHECK(response.find("<h1>Bad Request</h1>") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_error without detail uses phrase as body text") {
+    auto response = generate_cgi_error(HttpStatus::payload_too_large);
+    CHECK(response.find("<p>Payload Too Large</p>") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_error produces 420 response") {
+    auto response = generate_cgi_error(HttpStatus::enhance_your_calm);
+    CHECK(response.find("Status: 420 Enhance Your Calm") != std::string::npos);
+    CHECK(response.find("Content-Type: text/html") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_error with non-error code returns 500") {
+    // Passing a 2xx code should be rejected and replaced with 500.
+    auto response = generate_cgi_error(HttpStatus::ok, "should not appear as 200");
+    CHECK(response.find("Status: 500 Internal Server Error") != std::string::npos);
+    CHECK(response.find("Status: 200") == std::string::npos);
+}
+
+TEST_CASE("generate_cgi_error with 3xx code returns 500") {
+    auto response = generate_cgi_error(HttpStatus::see_other, "not an error");
+    CHECK(response.find("Status: 500 Internal Server Error") != std::string::npos);
+    CHECK(response.find("Status: 303") == std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// html_escape — prevents XSS in HTML output
+// ---------------------------------------------------------------------------
+
+TEST_CASE("html_escape escapes ampersand") {
+    CHECK(html_escape("a&b") == "a&amp;b");
+}
+
+TEST_CASE("html_escape escapes angle brackets") {
+    CHECK(html_escape("<script>") == "&lt;script&gt;");
+}
+
+TEST_CASE("html_escape escapes double quotes") {
+    CHECK(html_escape("say \"hello\"") == "say &quot;hello&quot;");
+}
+
+TEST_CASE("html_escape escapes single quotes") {
+    CHECK(html_escape("it's") == "it&#39;s");
+}
+
+TEST_CASE("html_escape leaves safe text unchanged") {
+    CHECK(html_escape("Hello World 123") == "Hello World 123");
+}
+
+TEST_CASE("html_escape handles empty string") {
+    CHECK(html_escape("") == "");
+}
+
+TEST_CASE("html_escape handles multiple special characters") {
+    CHECK(html_escape("<a href=\"/\">x&y</a>") ==
+          "&lt;a href=&quot;/&quot;&gt;x&amp;y&lt;/a&gt;");
+}
+
+TEST_CASE("generate_cgi_error HTML-escapes detail") {
+    auto response = generate_cgi_error(HttpStatus::bad_request,
+                                       "<script>alert('xss')</script>");
+    // The literal <script> tag must not appear unescaped.
+    CHECK(response.find("<script>") == std::string::npos);
+    CHECK(response.find("&lt;script&gt;") != std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// contains_header_breaks — detects CR/LF in strings
+// ---------------------------------------------------------------------------
+
+TEST_CASE("contains_header_breaks returns false for normal text") {
+    CHECK_FALSE(contains_header_breaks("hello"));
+    CHECK_FALSE(contains_header_breaks("/path/to/page"));
+}
+
+TEST_CASE("contains_header_breaks detects CR") {
+    CHECK(contains_header_breaks("before\rafter"));
+}
+
+TEST_CASE("contains_header_breaks detects LF") {
+    CHECK(contains_header_breaks("before\nafter"));
+}
+
+TEST_CASE("contains_header_breaks detects CRLF") {
+    CHECK(contains_header_breaks("before\r\nafter"));
+}
+
+TEST_CASE("contains_header_breaks handles empty string") {
+    CHECK_FALSE(contains_header_breaks(""));
+}
+
+// ---------------------------------------------------------------------------
+// sanitize_redirect_target — prevents open redirects & header injection
+// ---------------------------------------------------------------------------
+
+TEST_CASE("sanitize_redirect_target accepts relative path") {
+    CHECK(sanitize_redirect_target("/guestbook") == "/guestbook");
+}
+
+TEST_CASE("sanitize_redirect_target accepts root path") {
+    CHECK(sanitize_redirect_target("/") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target rejects empty string") {
+    CHECK(sanitize_redirect_target("") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target rejects scheme-relative URL") {
+    CHECK(sanitize_redirect_target("//evil.com/path") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target rejects external URL without host") {
+    CHECK(sanitize_redirect_target("http://evil.com/phish") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target rejects CRLF") {
+    CHECK(sanitize_redirect_target("/page\r\nInjected: header") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target rejects LF alone") {
+    CHECK(sanitize_redirect_target("/page\nInjected") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target extracts path from same-origin URL") {
+    CHECK(sanitize_redirect_target("http://solar.local/guestbook", "solar.local") == "/guestbook");
+}
+
+TEST_CASE("sanitize_redirect_target extracts path from same-origin HTTPS URL") {
+    CHECK(sanitize_redirect_target("https://solar.local/page", "solar.local") == "/page");
+}
+
+TEST_CASE("sanitize_redirect_target returns / for same-origin URL with no path") {
+    CHECK(sanitize_redirect_target("http://solar.local", "solar.local") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target rejects different host in absolute URL") {
+    CHECK(sanitize_redirect_target("http://other.host/page", "solar.local") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target rejects bare domain (no scheme)") {
+    CHECK(sanitize_redirect_target("evil.com/path") == "/");
+}
+
+// ---------------------------------------------------------------------------
+// generate_cgi_redirect — rejects header-injection URLs
+// ---------------------------------------------------------------------------
+
+TEST_CASE("generate_cgi_redirect rejects URL with CRLF") {
+    auto response = generate_cgi_redirect("/page\r\nEvil: header");
+    CHECK(response.find("Status: 400 Bad Request") != std::string::npos);
+    CHECK(response.find("Location:") == std::string::npos);
+}
+
+TEST_CASE("generate_cgi_redirect rejects URL with LF") {
+    auto response = generate_cgi_redirect("/page\nEvil");
+    CHECK(response.find("Status: 400 Bad Request") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_redirect accepts clean URL") {
+    auto response = generate_cgi_redirect("/guestbook");
+    CHECK(response.find("Status: 303 See Other") != std::string::npos);
+    CHECK(response.find("Location: /guestbook") != std::string::npos);
+}

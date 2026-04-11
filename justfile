@@ -35,5 +35,7 @@ deploy: deploy-lighttpd
 deploy-lighttpd:
     install -d /etc/lighttpd/conf-enabled
     install -d /srv/guestbook/logbook
+    install -d /var/log/lighttpd
     install -m 644 lighttpd/solar-server.conf /etc/lighttpd/conf-enabled/90-solar-server.conf
+    install -m 644 lighttpd/logrotate.conf /etc/logrotate.d/lighttpd
     systemctl restart lighttpd
