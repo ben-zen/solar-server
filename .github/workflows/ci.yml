@@ -21,29 +21,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y clang pkg-config meson ninja-build libfmt-dev libcurl4-openssl-dev hugo
 
-      - name: Configure logger
-        run: CC=clang CXX=clang++ meson setup build src
-        working-directory: logger
+      - name: Install just
+        uses: extractions/setup-just@v3
 
-      - name: Build logger
-        run: meson compile -C build
-        working-directory: logger
+      - name: Build all
+        run: just build
 
-      - name: Configure guestbook
-        run: CC=clang CXX=clang++ meson setup build src
-        working-directory: guestbook
-
-      - name: Build guestbook
-        run: meson compile -C build
-        working-directory: guestbook
-
-      - name: Test guestbook
-        run: meson test -C build -v
-        working-directory: guestbook
-
-      - name: Build site
-        run: hugo
-        working-directory: website
+      - name: Test
+        run: just test
 
       - name: Bundle artifacts
         if: github.event_name == 'push'

@@ -1,0 +1,17 @@
+set dotenv-load := false
+
+# Default recipe: build the Hugo site
+default: build
+
+# Build the Hugo site
+build:
+    hugo
+
+# Remove generated site output
+clean:
+    rm -rf public .hugo_build.lock
+
+# Deploy the site to the local machine (requires root)
+deploy: build
+    install -d /www/solar-site
+    cp -r public/. /www/solar-site/

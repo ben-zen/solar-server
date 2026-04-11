@@ -1,0 +1,26 @@
+set dotenv-load := false
+
+# Default recipe: build the logger
+default: build
+
+# Configure the Meson build directory
+setup:
+    CC=clang CXX=clang++ meson setup --reconfigure build src || CC=clang CXX=clang++ meson setup build src
+
+# Build the logger binary
+build: setup
+    meson compile -C build
+
+# Remove build artifacts
+clean:
+    rm -rf build
+
+# Deploy the logger to the local machine (requires root)
+deploy: build
+    install -d /srv/logger
+    install -m 755 build/logger /srv/logger/logger
+    install -m 755 util/update-status.sh /srv/logger/update-status.sh
+    install -m 644 util/update-status.service /etc/systemd/system/update-status.service
+    install -m 644 util/update-status.timer /etc/systemd/system/update-status.timer
+    systemctl daemon-reload
+    systemctl enable --now update-status.timer

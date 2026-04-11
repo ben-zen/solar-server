@@ -40,6 +40,28 @@ Header-only libraries shared by the C++ components:
 
 ## Building
 
+All components can be built at once using [Just](https://github.com/casey/just):
+
+```sh
+just build
+```
+
+Or build individual components:
+
+```sh
+just logger build    # Logger
+just guestbook build # Guestbook
+just website build   # Website (Hugo)
+```
+
+Run tests:
+
+```sh
+just test
+```
+
+### Manual builds
+
 Both C++ components use [Meson](https://mesonbuild.com/) and require Clang:
 
 ```sh
@@ -59,6 +81,9 @@ hugo
 ```
 
 ## Dependencies
+
+* [Just](https://github.com/casey/just) — command runner for build and
+  deployment automation
 
 ### Armbian 12
 
@@ -87,6 +112,22 @@ The intended deployment layout on the target device:
 /www/solar-site/         → Hugo-generated static site + CSS
 /usr/lib/cgi-bin/        → guestbook CGI binary
 /etc/systemd/system/     → update-status.service + update-status.timer
+```
+
+### Deploying with Just
+
+Deploy all components at once (requires root):
+
+```sh
+sudo just deploy
+```
+
+Or deploy individually:
+
+```sh
+sudo just logger deploy    # Logger binary, helper script, and systemd units
+sudo just guestbook deploy # Guestbook CGI binary
+sudo just website deploy   # Hugo-generated site
 ```
 
 ### lighttpd
