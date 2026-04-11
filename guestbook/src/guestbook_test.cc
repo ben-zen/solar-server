@@ -656,3 +656,142 @@ TEST_CASE("generate_cgi_error with 3xx code returns 500") {
     CHECK(response.find("Status: 500 Internal Server Error") != std::string::npos);
     CHECK(response.find("Status: 303") == std::string::npos);
 }
+
+// ---------------------------------------------------------------------------
+// html_escape — prevents XSS in HTML output
+// ---------------------------------------------------------------------------
+
+TEST_CASE("html_escape escapes ampersand") {
+    CHECK(html_escape("a&b") == "a&amp;b");
+}
+
+TEST_CASE("html_escape escapes angle brackets") {
+    CHECK(html_escape("<script>") == "&lt;script&gt;");
+}
+
+TEST_CASE("html_escape escapes double quotes") {
+    CHECK(html_escape("say \"hello\"") == "say &quot;hello&quot;");
+}
+
+TEST_CASE("html_escape escapes single quotes") {
+    CHECK(html_escape("it's") == "it&#39;s");
+}
+
+TEST_CASE("html_escape leaves safe text unchanged") {
+    CHECK(html_escape("Hello World 123") == "Hello World 123");
+}
+
+TEST_CASE("html_escape handles empty string") {
+    CHECK(html_escape("") == "");
+}
+
+TEST_CASE("html_escape handles multiple special characters") {
+    CHECK(html_escape("<a href=\"/\">x&y</a>") ==
+          "&lt;a href=&quot;/&quot;&gt;x&amp;y&lt;/a&gt;");
+}
+
+TEST_CASE("generate_cgi_error HTML-escapes detail") {
+    auto response = generate_cgi_error(HttpStatus::bad_request,
+                                       "<script>alert('xss')</script>");
+    // The literal <script> tag must not appear unescaped.
+    CHECK(response.find("<script>") == std::string::npos);
+    CHECK(response.find("&lt;script&gt;") != std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// contains_header_breaks — detects CR/LF in strings
+// ---------------------------------------------------------------------------
+
+TEST_CASE("contains_header_breaks returns false for normal text") {
+    CHECK_FALSE(contains_header_breaks("hello"));
+    CHECK_FALSE(contains_header_breaks("/path/to/page"));
+}
+
+TEST_CASE("contains_header_breaks detects CR") {
+    CHECK(contains_header_breaks("before\rafter"));
+}
+
+TEST_CASE("contains_header_breaks detects LF") {
+    CHECK(contains_header_breaks("before\nafter"));
+}
+
+TEST_CASE("contains_header_breaks detects CRLF") {
+    CHECK(contains_header_breaks("before\r\nafter"));
+}
+
+TEST_CASE("contains_header_breaks handles empty string") {
+    CHECK_FALSE(contains_header_breaks(""));
+}
+
+// ---------------------------------------------------------------------------
+// sanitize_redirect_target — prevents open redirects & header injection
+// ---------------------------------------------------------------------------
+
+TEST_CASE("sanitize_redirect_target accepts relative path") {
+    CHECK(sanitize_redirect_target("/guestbook") == "/guestbook");
+}
+
+TEST_CASE("sanitize_redirect_target accepts root path") {
+    CHECK(sanitize_redirect_target("/") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target rejects empty string") {
+    CHECK(sanitize_redirect_target("") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target rejects scheme-relative URL") {
+    CHECK(sanitize_redirect_target("//evil.com/path") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target rejects external URL without host") {
+    CHECK(sanitize_redirect_target("http://evil.com/phish") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target rejects CRLF") {
+    CHECK(sanitize_redirect_target("/page\r\nInjected: header") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target rejects LF alone") {
+    CHECK(sanitize_redirect_target("/page\nInjected") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target extracts path from same-origin URL") {
+    CHECK(sanitize_redirect_target("http://solar.local/guestbook", "solar.local") == "/guestbook");
+}
+
+TEST_CASE("sanitize_redirect_target extracts path from same-origin HTTPS URL") {
+    CHECK(sanitize_redirect_target("https://solar.local/page", "solar.local") == "/page");
+}
+
+TEST_CASE("sanitize_redirect_target returns / for same-origin URL with no path") {
+    CHECK(sanitize_redirect_target("http://solar.local", "solar.local") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target rejects different host in absolute URL") {
+    CHECK(sanitize_redirect_target("http://other.host/page", "solar.local") == "/");
+}
+
+TEST_CASE("sanitize_redirect_target rejects bare domain (no scheme)") {
+    CHECK(sanitize_redirect_target("evil.com/path") == "/");
+}
+
+// ---------------------------------------------------------------------------
+// generate_cgi_redirect — rejects header-injection URLs
+// ---------------------------------------------------------------------------
+
+TEST_CASE("generate_cgi_redirect rejects URL with CRLF") {
+    auto response = generate_cgi_redirect("/page\r\nEvil: header");
+    CHECK(response.find("Status: 400 Bad Request") != std::string::npos);
+    CHECK(response.find("Location:") == std::string::npos);
+}
+
+TEST_CASE("generate_cgi_redirect rejects URL with LF") {
+    auto response = generate_cgi_redirect("/page\nEvil");
+    CHECK(response.find("Status: 400 Bad Request") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_redirect accepts clean URL") {
+    auto response = generate_cgi_redirect("/guestbook");
+    CHECK(response.find("Status: 303 See Other") != std::string::npos);
+    CHECK(response.find("Location: /guestbook") != std::string::npos);
+}

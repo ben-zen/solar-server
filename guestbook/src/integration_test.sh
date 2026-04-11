@@ -71,10 +71,30 @@ stdout=$(echo -n "name=Alice&location=Seattle&message=Hello+World" \
 assert_stdout_contains "cgi-valid-redirect" "Status: 303 See Other" "$stdout"
 assert_stdout_contains "cgi-valid-location" "Location: /" "$stdout"
 
-echo "--- CGI mode: valid submission redirects to HTTP_REFERER ---"
+echo "--- CGI mode: valid submission redirects to HTTP_REFERER (relative path) ---"
 stdout=$(echo -n "name=Bob&location=Mars&message=Hi" \
-    | CONTENT_LENGTH=33 HTTP_REFERER="http://example.com/guestbook" "$GUESTBOOK" 2>/dev/null) || true
-assert_stdout_contains "cgi-referer-redirect" "Location: http://example.com/guestbook" "$stdout"
+    | CONTENT_LENGTH=33 HTTP_REFERER="/guestbook" "$GUESTBOOK" 2>/dev/null) || true
+assert_stdout_contains "cgi-referer-redirect" "Location: /guestbook" "$stdout"
+
+echo "--- CGI mode: external HTTP_REFERER falls back to / ---"
+stdout=$(echo -n "name=Bob&location=Mars&message=Hi" \
+    | CONTENT_LENGTH=33 HTTP_REFERER="http://evil.example.com/phish" "$GUESTBOOK" 2>/dev/null) || true
+assert_stdout_contains "cgi-referer-external-fallback" "Location: /" "$stdout"
+
+echo "--- CGI mode: same-origin HTTP_REFERER extracts path ---"
+stdout=$(echo -n "name=Bob&location=Mars&message=Hi" \
+    | CONTENT_LENGTH=33 HTTP_REFERER="http://solar.local/guestbook" HTTP_HOST="solar.local" "$GUESTBOOK" 2>/dev/null) || true
+assert_stdout_contains "cgi-referer-sameorigin" "Location: /guestbook" "$stdout"
+
+echo "--- CGI mode: HTTP_REFERER with CRLF falls back to / ---"
+stdout=$(printf 'name=Bob&location=Mars&message=Hi' \
+    | CONTENT_LENGTH=33 HTTP_REFERER=$'/evil\r\nInjected: header' "$GUESTBOOK" 2>/dev/null) || true
+assert_stdout_contains "cgi-referer-crlf-fallback" "Location: /" "$stdout"
+
+echo "--- CGI mode: scheme-relative HTTP_REFERER (//...) falls back to / ---"
+stdout=$(echo -n "name=Bob&location=Mars&message=Hi" \
+    | CONTENT_LENGTH=33 HTTP_REFERER="//evil.com/path" "$GUESTBOOK" 2>/dev/null) || true
+assert_stdout_contains "cgi-referer-scheme-relative-fallback" "Location: /" "$stdout"
 
 echo "--- CGI mode: zero content length returns 400 ---"
 stdout=$(echo -n "" | CONTENT_LENGTH=0 "$GUESTBOOK" 2>/dev/null) || true
@@ -143,6 +163,23 @@ assert_stdout_contains "cgi-logbook-redirect" "Status: 303 See Other" "$stdout"
 logbook_content=$(cat "$LOGBOOK_DIR/logbook.current.log")
 assert_stdout_contains "cgi-logbook-author" '"author":"Writer"' "$logbook_content"
 assert_stdout_contains "cgi-logbook-message" "Logbook test" "$logbook_content"
+rm -rf "$LOGBOOK_DIR"
+LOGBOOK_DIR=""
+
+echo "--- CGI mode: creates logbook file on first run ---"
+LOGBOOK_DIR=$(mktemp -d)
+# Do NOT pre-create the file — ofstream with app mode should create it.
+stdout=$(echo -n "name=First&location=Boot&message=Hello+world" \
+    | CONTENT_LENGTH=45 LOGBOOK="$LOGBOOK_DIR" "$GUESTBOOK" 2>/dev/null) || true
+assert_stdout_contains "cgi-logbook-create" "Status: 303 See Other" "$stdout"
+# Verify the logbook file was created and has content.
+if [[ -f "$LOGBOOK_DIR/logbook.current.log" ]]; then
+    logbook_content=$(cat "$LOGBOOK_DIR/logbook.current.log")
+    assert_stdout_contains "cgi-logbook-create-author" '"author":"First"' "$logbook_content"
+else
+    FAIL=$((FAIL + 1))
+    echo "FAIL [cgi-logbook-create-exists]: logbook.current.log was not created" >&2
+fi
 rm -rf "$LOGBOOK_DIR"
 LOGBOOK_DIR=""
 

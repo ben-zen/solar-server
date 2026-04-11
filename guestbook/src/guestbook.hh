@@ -148,6 +148,74 @@ inline int format_entry(const std::string &author,
 // CGI helper functions
 // ---------------------------------------------------------------------------
 
+// Escapes a string for safe inclusion in HTML content, preventing XSS.
+inline std::string html_escape(const std::string &input) {
+    std::string escaped;
+    escaped.reserve(input.size());
+    for (char ch : input) {
+        switch (ch) {
+            case '&':  escaped += "&amp;";  break;
+            case '<':  escaped += "&lt;";   break;
+            case '>':  escaped += "&gt;";   break;
+            case '"':  escaped += "&quot;";  break;
+            case '\'': escaped += "&#39;";  break;
+            default:   escaped += ch;       break;
+        }
+    }
+    return escaped;
+}
+
+// Returns true if the string contains CR or LF characters, which would
+// allow HTTP response splitting / header injection.
+inline bool contains_header_breaks(const std::string &value) {
+    return value.find('\r') != std::string::npos
+        || value.find('\n') != std::string::npos;
+}
+
+// Sanitizes a redirect target URL to prevent open redirects and header
+// injection.  Accepts relative paths (but not scheme-relative "//…") and
+// same-origin absolute URLs (converted to a relative path using |host|).
+// Falls back to "/" for anything else.
+inline std::string sanitize_redirect_target(const std::string &referer,
+                                            const std::string &host = "") {
+    if (referer.empty() || contains_header_breaks(referer)) {
+        return "/";
+    }
+
+    // Accept already-relative paths, but reject scheme-relative URLs ("//…").
+    if (referer[0] == '/') {
+        if (referer.size() > 1 && referer[1] == '/') {
+            return "/";
+        }
+        return referer;
+    }
+
+    // Accept same-origin absolute URLs by converting them to a relative path.
+    if (!host.empty()) {
+        for (const std::string &scheme : {"http://", "https://"}) {
+            if (referer.compare(0, scheme.size(), scheme) != 0) {
+                continue;
+            }
+
+            auto host_start = scheme.size();
+            if (referer.compare(host_start, host.size(), host) != 0) {
+                continue;
+            }
+
+            auto path_start = host_start + host.size();
+            if (path_start == referer.size()) {
+                return "/";
+            }
+
+            if (referer[path_start] == '/') {
+                return referer.substr(path_start);
+            }
+        }
+    }
+
+    return "/";
+}
+
 // HTTP status codes used in CGI responses.
 enum class HttpStatus {
     ok                  = 200,
@@ -265,7 +333,13 @@ inline std::string generate_cgi_response(HttpStatus code,
 }
 
 // Generates a CGI 303 redirect response to the given URL.
+// If the URL contains CR/LF (header injection), returns a 400 error instead.
 inline std::string generate_cgi_redirect(const std::string &redirect_url) {
+    if (contains_header_breaks(redirect_url)) {
+        return generate_cgi_response(HttpStatus::bad_request,
+                                     "Content-Type: text/plain\r\n",
+                                     "Bad Request: Invalid redirect URL\n");
+    }
     return generate_cgi_response(HttpStatus::see_other,
                                  fmt::format("Location: {}\r\n", redirect_url));
 }
@@ -286,9 +360,10 @@ inline std::string generate_cgi_error(HttpStatus code,
     }
 
     auto phrase = status_phrase(code);
-    std::string body_detail = detail.empty()
+    std::string safe_detail = html_escape(detail);
+    std::string body_detail = safe_detail.empty()
         ? std::string(phrase)
-        : fmt::format("{}: {}", phrase, detail);
+        : fmt::format("{}: {}", phrase, safe_detail);
 
     std::string body = fmt::format(
         "<html><body><h1>{}</h1><p>{}</p>"

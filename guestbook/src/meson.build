@@ -11,5 +11,5 @@ guestbook_test_files = [ 'guestbook_test.cc' ]
 guestbook_test = executable('guestbook_test', guestbook_test_files, dependencies: guestbook_deps, include_directories: guestbook_includes)
 test('guestbook_tests', guestbook_test)
 
-integration_test = find_program('integration_test.sh')
+integration_test = find_program('integration_test.sh', dirs: meson.current_source_dir())
 test('guestbook_integration', integration_test, args: [guestbook_exe])
