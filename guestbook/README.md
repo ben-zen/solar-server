@@ -31,66 +31,54 @@ Input limits:
 ## Building
 
 ```sh
-CC=clang CXX=clang++ meson setup build src
-meson compile -C build
+just guestbook build
+```
+
+Or from the `guestbook/` directory:
+
+```sh
+cd guestbook
+just build
 ```
 
 ### Running tests
 
 ```sh
-meson test -C build -v
+just guestbook test
 ```
 
 ## Deployment
 
-The automated deployment script (`util/deploy.sh`) handles all of the steps
-below.  Run it as root:
+Deploy all components at once from the repository root (requires root):
 
 ```sh
-sudo ./util/deploy.sh
+sudo just deploy
 ```
 
-### Manual deployment
+This installs the guestbook binary, lighttpd configuration (including
+`server.errorlog`), logrotate configuration, and creates the logbook
+directory at `/srv/guestbook/logbook`.
 
-#### Binary
+Or deploy only the guestbook binary:
 
 ```sh
-install -m 755 build/guestbook /usr/lib/cgi-bin/guestbook
+sudo just guestbook deploy
 ```
 
-#### Logbook directory
+### lighttpd
 
-```sh
-mkdir -p /srv/guestbook
-chown www-data:www-data /srv/guestbook
-touch /srv/guestbook/logbook.current.log
-chown www-data:www-data /srv/guestbook/logbook.current.log
-```
+The central lighttpd configuration (`lighttpd/solar-server.conf`) is
+installed by `just deploy-lighttpd` and handles:
 
-#### lighttpd
+- CGI routing (`/cgi-bin/` → `/usr/lib/cgi-bin/`)
+- `LOGBOOK` environment variable (set to `/srv/guestbook/logbook`)
+- `server.errorlog` (at `/var/log/lighttpd/error.log`) so that CGI stderr
+  output (diagnostic and error messages from the guestbook binary) is captured
 
-Install the lighttpd configuration that routes `/cgi-bin/guestbook` to the
-binary and sets the `LOGBOOK` environment variable:
+### Logrotate
 
-```sh
-install -m 644 util/lighttpd-guestbook.conf /etc/lighttpd/conf-enabled/90-guestbook.conf
-systemctl reload lighttpd
-```
-
-The configuration also sets `server.errorlog` so that CGI stderr (diagnostic
-and error messages from the guestbook binary) is captured in
-`/var/log/lighttpd/error.log`.
-
-#### Logrotate
-
-Install the logrotate configuration to keep lighttpd's error log (which
-captures guestbook CGI stderr output) from growing unbounded:
-
-```sh
-install -m 644 util/logrotate-lighttpd.conf /etc/logrotate.d/lighttpd
-```
-
-The logrotate policy (`util/logrotate-lighttpd.conf`):
+The logrotate configuration (`lighttpd/logrotate.conf`) is installed by
+`just deploy-lighttpd` to `/etc/logrotate.d/lighttpd`:
 
 - **Rotation**: weekly
 - **Retention**: 12 weeks
