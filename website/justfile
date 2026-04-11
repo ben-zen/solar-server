@@ -14,4 +14,5 @@ clean:
 # Deploy the site to the local machine (requires root)
 deploy: build
     install -d /www/solar-site
+    find /www/solar-site -mindepth 1 -delete
     cp -r public/. /www/solar-site/

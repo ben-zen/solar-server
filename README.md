@@ -122,6 +122,12 @@ Deploy all components at once (requires root):
 sudo just deploy
 ```
 
+This will also install the lighttpd configuration
+(`lighttpd/solar-server.conf` → `/etc/lighttpd/conf-enabled/90-solar-server.conf`),
+create the guestbook logbook directory at `/srv/guestbook/logbook`, and
+restart lighttpd. The manual lighttpd steps below are only needed when **not**
+using `just deploy`.
+
 Or deploy individually:
 
 ```sh
@@ -161,7 +167,6 @@ Set the `LOGBOOK` environment variable for the guestbook CGI so it knows
 where to write entries:
 
 ```lighttpd
-cgi.execute-x-only = "disable"
 setenv.add-environment = ( "LOGBOOK" => "/srv/guestbook/logbook" )
 ```
 
