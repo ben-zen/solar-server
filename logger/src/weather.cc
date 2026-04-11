@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <exception>
 #include <iostream>
+#include <map>
 #include <string>
 
 #include <curl/curl.h>
@@ -85,9 +86,33 @@ size_t gather_response(void *buffer,
 }
 
 overall_condition condition_from_string(const std::string &str) {
+    // NWS "shortForecast" values mapped to the overall_condition enum.
+    // "Mostly Clear" maps to clear (nighttime equivalent of "Mostly Sunny"),
+    // while "Mostly Sunny" maps to partly_cloudy since it implies some clouds.
     static std::map<std::string, overall_condition> relation {
         {"Sunny", overall_condition::clear},
         {"Clear", overall_condition::clear},
+        {"Mostly Clear", overall_condition::clear},
+        {"Mostly Sunny", overall_condition::partly_cloudy},
+        {"Partly Cloudy", overall_condition::partly_cloudy},
+        {"Partly Sunny", overall_condition::partly_cloudy},
+        {"Mostly Cloudy", overall_condition::cloudy},
+        {"Cloudy", overall_condition::cloudy},
+        {"Overcast", overall_condition::cloudy},
+        {"Fog", overall_condition::misting},
+        {"Haze", overall_condition::misting},
+        {"Light Rain", overall_condition::misting},
+        {"Drizzle", overall_condition::misting},
+        {"Rain", overall_condition::raining},
+        {"Heavy Rain", overall_condition::raining},
+        {"Showers", overall_condition::raining},
+        {"Thunderstorms", overall_condition::raining},
+        {"Rain Showers", overall_condition::raining},
+        {"Chance Rain Showers", overall_condition::raining},
+        {"Snow", overall_condition::snowing},
+        {"Light Snow", overall_condition::snowing},
+        {"Heavy Snow", overall_condition::snowing},
+        {"Blizzard", overall_condition::snowing},
     };
 
     if (relation.find(str) == relation.end())
