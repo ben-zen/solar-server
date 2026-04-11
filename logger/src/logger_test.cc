@@ -27,8 +27,9 @@ std::string convert_condition_to_filename(overall_condition condition);
 // ---------------------------------------------------------------------------
 // Sample NWS API forecast responses for three locations.
 //
-// These are representative subsets of real NWS API /gridpoints/.../forecast
-// responses, trimmed to the fields that load_forecast() actually uses.
+// These are full /gridpoints/.../forecast responses, matching the structure
+// returned by the NWS API.  Only the number of periods is reduced (real
+// responses carry 14 half-day periods).
 // ---------------------------------------------------------------------------
 
 // Washington Monument, Washington DC (station KDCA, grid LWX/97,71)
@@ -36,52 +37,172 @@ std::string convert_condition_to_filename(overall_condition condition);
 // Forecast:   https://api.weather.gov/gridpoints/LWX/97,71/forecast
 // Observation: https://api.weather.gov/stations/KDCA/observations/latest
 static const std::string washington_monument_forecast = R"({
+  "@context": [
+    "https://geojson.org/geojson-ld/geojson-context.jsonld",
+    {
+      "@version": "1.1",
+      "wx": "https://api.weather.gov/ontology#",
+      "geo": "http://www.opengis.net/ont/geosparql#",
+      "unit": "http://codes.wmo.int/common/unit/",
+      "@vocab": "https://api.weather.gov/ontology#"
+    }
+  ],
+  "type": "Feature",
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [[
+      [-77.0521399, 38.9035057],
+      [-77.0270498, 38.9013498],
+      [-77.0237034, 38.8797498],
+      [-77.0487892, 38.8818985],
+      [-77.0521399, 38.9035057]
+    ]]
+  },
   "properties": {
+    "units": "us",
+    "forecastGenerator": "BaselineForecastGenerator",
+    "generatedAt": "2025-06-15T12:00:00+00:00",
+    "updateTime": "2025-06-15T11:43:22+00:00",
+    "validTimes": "2025-06-15T06:00:00+00:00/P7DT18H",
+    "elevation": {
+      "unitCode": "wmoUnit:m",
+      "value": 9.144
+    },
     "periods": [
       {
         "number": 1,
         "name": "Today",
         "startTime": "2025-06-15T06:00:00-04:00",
+        "endTime": "2025-06-15T18:00:00-04:00",
         "isDaytime": true,
         "temperature": 88,
         "temperatureUnit": "F",
-        "shortForecast": "Sunny"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": null
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 18.33
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 55
+        },
+        "windSpeed": "5 to 10 mph",
+        "windDirection": "SW",
+        "icon": "https://api.weather.gov/icons/land/day/skc?size=medium",
+        "shortForecast": "Sunny",
+        "detailedForecast": "Sunny, with a high near 88. Southwest wind 5 to 10 mph."
       },
       {
         "number": 2,
         "name": "Tonight",
         "startTime": "2025-06-15T18:00:00-04:00",
+        "endTime": "2025-06-16T06:00:00-04:00",
         "isDaytime": false,
         "temperature": 68,
         "temperatureUnit": "F",
-        "shortForecast": "Mostly Clear"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": null
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 17.22
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 72
+        },
+        "windSpeed": "2 to 5 mph",
+        "windDirection": "SW",
+        "icon": "https://api.weather.gov/icons/land/night/few?size=medium",
+        "shortForecast": "Mostly Clear",
+        "detailedForecast": "Mostly clear, with a low around 68. Southwest wind 2 to 5 mph."
       },
       {
         "number": 3,
         "name": "Monday",
         "startTime": "2025-06-16T06:00:00-04:00",
+        "endTime": "2025-06-16T18:00:00-04:00",
         "isDaytime": true,
         "temperature": 91,
         "temperatureUnit": "F",
-        "shortForecast": "Partly Cloudy"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": 20
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 20.0
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 58
+        },
+        "windSpeed": "8 to 12 mph",
+        "windDirection": "S",
+        "icon": "https://api.weather.gov/icons/land/day/sct?size=medium",
+        "shortForecast": "Partly Cloudy",
+        "detailedForecast": "Partly cloudy, with a high near 91. South wind 8 to 12 mph."
       },
       {
         "number": 4,
         "name": "Monday Night",
         "startTime": "2025-06-16T18:00:00-04:00",
+        "endTime": "2025-06-17T06:00:00-04:00",
         "isDaytime": false,
         "temperature": 72,
         "temperatureUnit": "F",
-        "shortForecast": "Cloudy"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": 30
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 21.11
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 80
+        },
+        "windSpeed": "5 to 8 mph",
+        "windDirection": "S",
+        "icon": "https://api.weather.gov/icons/land/night/ovc?size=medium",
+        "shortForecast": "Cloudy",
+        "detailedForecast": "Cloudy, with a low around 72. South wind 5 to 8 mph."
       },
       {
         "number": 5,
         "name": "Tuesday",
         "startTime": "2025-06-17T06:00:00-04:00",
+        "endTime": "2025-06-17T18:00:00-04:00",
         "isDaytime": true,
         "temperature": 85,
         "temperatureUnit": "F",
-        "shortForecast": "Thunderstorms"
+        "temperatureTrend": "falling",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": 70
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 22.22
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 85
+        },
+        "windSpeed": "10 to 15 mph",
+        "windDirection": "W",
+        "icon": "https://api.weather.gov/icons/land/day/tsra,70?size=medium",
+        "shortForecast": "Thunderstorms",
+        "detailedForecast": "Thunderstorms. Cloudy, with a high near 85. West wind 10 to 15 mph. Chance of precipitation is 70%."
       }
     ]
   }
@@ -92,70 +213,226 @@ static const std::string washington_monument_forecast = R"({
 // Forecast:   https://api.weather.gov/gridpoints/SEW/124,69/forecast
 // Observation: https://api.weather.gov/stations/KBFI/observations/latest
 static const std::string cal_anderson_park_forecast = R"({
+  "@context": [
+    "https://geojson.org/geojson-ld/geojson-context.jsonld",
+    {
+      "@version": "1.1",
+      "wx": "https://api.weather.gov/ontology#",
+      "geo": "http://www.opengis.net/ont/geosparql#",
+      "unit": "http://codes.wmo.int/common/unit/",
+      "@vocab": "https://api.weather.gov/ontology#"
+    }
+  ],
+  "type": "Feature",
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [[
+      [-122.3368198, 47.6306768],
+      [-122.3092498, 47.6285023],
+      [-122.3058498, 47.6069023],
+      [-122.3334098, 47.6090698],
+      [-122.3368198, 47.6306768]
+    ]]
+  },
   "properties": {
+    "units": "us",
+    "forecastGenerator": "BaselineForecastGenerator",
+    "generatedAt": "2025-06-15T12:00:00+00:00",
+    "updateTime": "2025-06-15T11:30:17+00:00",
+    "validTimes": "2025-06-15T06:00:00+00:00/P7DT18H",
+    "elevation": {
+      "unitCode": "wmoUnit:m",
+      "value": 48.768
+    },
     "periods": [
       {
         "number": 1,
         "name": "Today",
         "startTime": "2025-06-15T06:00:00-07:00",
+        "endTime": "2025-06-15T18:00:00-07:00",
         "isDaytime": true,
         "temperature": 65,
         "temperatureUnit": "F",
-        "shortForecast": "Partly Sunny"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": 10
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 10.0
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 62
+        },
+        "windSpeed": "5 to 10 mph",
+        "windDirection": "NW",
+        "icon": "https://api.weather.gov/icons/land/day/bkn?size=medium",
+        "shortForecast": "Partly Sunny",
+        "detailedForecast": "Partly sunny, with a high near 65. Northwest wind 5 to 10 mph."
       },
       {
         "number": 2,
         "name": "Tonight",
         "startTime": "2025-06-15T18:00:00-07:00",
+        "endTime": "2025-06-16T06:00:00-07:00",
         "isDaytime": false,
         "temperature": 52,
         "temperatureUnit": "F",
-        "shortForecast": "Mostly Cloudy"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": 20
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 8.89
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 75
+        },
+        "windSpeed": "3 to 6 mph",
+        "windDirection": "N",
+        "icon": "https://api.weather.gov/icons/land/night/bkn?size=medium",
+        "shortForecast": "Mostly Cloudy",
+        "detailedForecast": "Mostly cloudy, with a low around 52. North wind 3 to 6 mph."
       },
       {
         "number": 3,
         "name": "Monday",
         "startTime": "2025-06-16T06:00:00-07:00",
+        "endTime": "2025-06-16T18:00:00-07:00",
         "isDaytime": true,
         "temperature": 62,
         "temperatureUnit": "F",
-        "shortForecast": "Light Rain"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": 60
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 10.56
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 80
+        },
+        "windSpeed": "8 to 12 mph",
+        "windDirection": "S",
+        "icon": "https://api.weather.gov/icons/land/day/rain_showers,60?size=medium",
+        "shortForecast": "Light Rain",
+        "detailedForecast": "Light rain likely. Cloudy, with a high near 62. South wind 8 to 12 mph. Chance of precipitation is 60%."
       },
       {
         "number": 4,
         "name": "Monday Night",
         "startTime": "2025-06-16T18:00:00-07:00",
+        "endTime": "2025-06-17T06:00:00-07:00",
         "isDaytime": false,
         "temperature": 50,
         "temperatureUnit": "F",
-        "shortForecast": "Rain"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": 80
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 9.44
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 88
+        },
+        "windSpeed": "5 to 10 mph",
+        "windDirection": "S",
+        "icon": "https://api.weather.gov/icons/land/night/rain,80?size=medium",
+        "shortForecast": "Rain",
+        "detailedForecast": "Rain. Cloudy, with a low around 50. South wind 5 to 10 mph. Chance of precipitation is 80%."
       },
       {
         "number": 5,
         "name": "Tuesday",
         "startTime": "2025-06-17T06:00:00-07:00",
+        "endTime": "2025-06-17T18:00:00-07:00",
         "isDaytime": true,
         "temperature": 60,
         "temperatureUnit": "F",
-        "shortForecast": "Mostly Sunny"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": 20
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 8.33
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 65
+        },
+        "windSpeed": "5 to 8 mph",
+        "windDirection": "NW",
+        "icon": "https://api.weather.gov/icons/land/day/few?size=medium",
+        "shortForecast": "Mostly Sunny",
+        "detailedForecast": "Mostly sunny, with a high near 60. Northwest wind 5 to 8 mph."
       },
       {
         "number": 6,
         "name": "Tuesday Night",
         "startTime": "2025-06-17T18:00:00-07:00",
+        "endTime": "2025-06-18T06:00:00-07:00",
         "isDaytime": false,
         "temperature": 49,
         "temperatureUnit": "F",
-        "shortForecast": "Clear"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": null
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 7.22
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 70
+        },
+        "windSpeed": "3 to 5 mph",
+        "windDirection": "N",
+        "icon": "https://api.weather.gov/icons/land/night/skc?size=medium",
+        "shortForecast": "Clear",
+        "detailedForecast": "Clear, with a low around 49. North wind 3 to 5 mph."
       },
       {
         "number": 7,
         "name": "Wednesday",
         "startTime": "2025-06-18T06:00:00-07:00",
+        "endTime": "2025-06-18T18:00:00-07:00",
         "isDaytime": true,
         "temperature": 68,
         "temperatureUnit": "F",
-        "shortForecast": "Sunny"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": null
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 9.44
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 58
+        },
+        "windSpeed": "5 to 10 mph",
+        "windDirection": "NW",
+        "icon": "https://api.weather.gov/icons/land/day/skc?size=medium",
+        "shortForecast": "Sunny",
+        "detailedForecast": "Sunny, with a high near 68. Northwest wind 5 to 10 mph."
       }
     ]
   }
@@ -166,70 +443,226 @@ static const std::string cal_anderson_park_forecast = R"({
 // Forecast:   https://api.weather.gov/gridpoints/SEW/151,65/forecast
 // Observation: https://api.weather.gov/stations/KNUW/observations/latest
 static const std::string marrowstone_island_forecast = R"({
+  "@context": [
+    "https://geojson.org/geojson-ld/geojson-context.jsonld",
+    {
+      "@version": "1.1",
+      "wx": "https://api.weather.gov/ontology#",
+      "geo": "http://www.opengis.net/ont/geosparql#",
+      "unit": "http://codes.wmo.int/common/unit/",
+      "@vocab": "https://api.weather.gov/ontology#"
+    }
+  ],
+  "type": "Feature",
+  "geometry": {
+    "type": "Polygon",
+    "coordinates": [[
+      [-122.7019889, 48.0822356],
+      [-122.6733198, 48.0800234],
+      [-122.6698198, 48.0584234],
+      [-122.6984798, 48.0606287],
+      [-122.7019889, 48.0822356]
+    ]]
+  },
   "properties": {
+    "units": "us",
+    "forecastGenerator": "BaselineForecastGenerator",
+    "generatedAt": "2025-06-15T12:00:00+00:00",
+    "updateTime": "2025-06-15T11:25:43+00:00",
+    "validTimes": "2025-06-15T06:00:00+00:00/P7DT18H",
+    "elevation": {
+      "unitCode": "wmoUnit:m",
+      "value": 4.572
+    },
     "periods": [
       {
         "number": 1,
         "name": "Today",
         "startTime": "2025-06-15T06:00:00-07:00",
+        "endTime": "2025-06-15T18:00:00-07:00",
         "isDaytime": true,
         "temperature": 58,
         "temperatureUnit": "F",
-        "shortForecast": "Fog"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": null
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 11.67
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 95
+        },
+        "windSpeed": "2 mph",
+        "windDirection": "N",
+        "icon": "https://api.weather.gov/icons/land/day/fog?size=medium",
+        "shortForecast": "Fog",
+        "detailedForecast": "Patchy fog before 11am. Partly sunny, with a high near 58."
       },
       {
         "number": 2,
         "name": "Tonight",
         "startTime": "2025-06-15T18:00:00-07:00",
+        "endTime": "2025-06-16T06:00:00-07:00",
         "isDaytime": false,
         "temperature": 48,
         "temperatureUnit": "F",
-        "shortForecast": "Partly Cloudy"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": null
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 7.78
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 78
+        },
+        "windSpeed": "3 to 5 mph",
+        "windDirection": "N",
+        "icon": "https://api.weather.gov/icons/land/night/sct?size=medium",
+        "shortForecast": "Partly Cloudy",
+        "detailedForecast": "Partly cloudy, with a low around 48. North wind 3 to 5 mph."
       },
       {
         "number": 3,
         "name": "Monday",
         "startTime": "2025-06-16T06:00:00-07:00",
+        "endTime": "2025-06-16T18:00:00-07:00",
         "isDaytime": true,
         "temperature": 61,
         "temperatureUnit": "F",
-        "shortForecast": "Mostly Cloudy"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": 30
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 10.0
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 75
+        },
+        "windSpeed": "5 to 10 mph",
+        "windDirection": "S",
+        "icon": "https://api.weather.gov/icons/land/day/bkn?size=medium",
+        "shortForecast": "Mostly Cloudy",
+        "detailedForecast": "Mostly cloudy, with a high near 61. South wind 5 to 10 mph."
       },
       {
         "number": 4,
         "name": "Monday Night",
         "startTime": "2025-06-16T18:00:00-07:00",
+        "endTime": "2025-06-17T06:00:00-07:00",
         "isDaytime": false,
         "temperature": 46,
         "temperatureUnit": "F",
-        "shortForecast": "Drizzle"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": 50
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 7.22
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 85
+        },
+        "windSpeed": "5 to 8 mph",
+        "windDirection": "SE",
+        "icon": "https://api.weather.gov/icons/land/night/rain_showers,50?size=medium",
+        "shortForecast": "Drizzle",
+        "detailedForecast": "Drizzle likely after midnight. Mostly cloudy, with a low around 46. Southeast wind 5 to 8 mph. Chance of precipitation is 50%."
       },
       {
         "number": 5,
         "name": "Tuesday",
         "startTime": "2025-06-17T06:00:00-07:00",
+        "endTime": "2025-06-17T18:00:00-07:00",
         "isDaytime": true,
         "temperature": 55,
         "temperatureUnit": "F",
-        "shortForecast": "Rain Showers"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": 60
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 8.89
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 82
+        },
+        "windSpeed": "10 to 15 mph",
+        "windDirection": "S",
+        "icon": "https://api.weather.gov/icons/land/day/rain_showers,60?size=medium",
+        "shortForecast": "Rain Showers",
+        "detailedForecast": "Rain showers likely. Cloudy, with a high near 55. South wind 10 to 15 mph. Chance of precipitation is 60%."
       },
       {
         "number": 6,
         "name": "Tuesday Night",
         "startTime": "2025-06-17T18:00:00-07:00",
+        "endTime": "2025-06-18T06:00:00-07:00",
         "isDaytime": false,
         "temperature": 44,
         "temperatureUnit": "F",
-        "shortForecast": "Clear"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": null
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 5.56
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 72
+        },
+        "windSpeed": "3 to 5 mph",
+        "windDirection": "N",
+        "icon": "https://api.weather.gov/icons/land/night/skc?size=medium",
+        "shortForecast": "Clear",
+        "detailedForecast": "Clear, with a low around 44. North wind 3 to 5 mph."
       },
       {
         "number": 7,
         "name": "Wednesday",
         "startTime": "2025-06-18T06:00:00-07:00",
+        "endTime": "2025-06-18T18:00:00-07:00",
         "isDaytime": true,
         "temperature": 63,
         "temperatureUnit": "F",
-        "shortForecast": "Sunny"
+        "temperatureTrend": "",
+        "probabilityOfPrecipitation": {
+          "unitCode": "wmoUnit:percent",
+          "value": null
+        },
+        "dewpoint": {
+          "unitCode": "wmoUnit:degC",
+          "value": 8.33
+        },
+        "relativeHumidity": {
+          "unitCode": "wmoUnit:percent",
+          "value": 60
+        },
+        "windSpeed": "5 to 10 mph",
+        "windDirection": "NW",
+        "icon": "https://api.weather.gov/icons/land/day/skc?size=medium",
+        "shortForecast": "Sunny",
+        "detailedForecast": "Sunny, with a high near 63. Northwest wind 5 to 10 mph."
       }
     ]
   }
