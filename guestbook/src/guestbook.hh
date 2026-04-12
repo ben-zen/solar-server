@@ -124,10 +124,10 @@ inline std::map<std::string, std::string> unpack_form_data(const std::string_vie
     return form_data;
 }
 
-inline int format_entry(const std::string &author,
+inline int format_entry(std::basic_ostream<char> &output,
+                 const std::string &author,
                  const std::string &location,
                  const std::string &message,
-                 std::basic_ostream<char> &output,
                  std::chrono::system_clock::time_point timestamp
                      = std::chrono::system_clock::now()) {
     // An entry is a Hugo content page with JSON front matter.

@@ -150,7 +150,7 @@ TEST_CASE("unpack_form_data handles empty value") {
 
 TEST_CASE("format_entry produces valid JSON front matter") {
     std::ostringstream out;
-    format_entry("Alice", "Wonderland", "Hello there!", out);
+    format_entry(out, "Alice", "Wonderland", "Hello there!");
 
     std::string result = out.str();
 
@@ -169,7 +169,7 @@ TEST_CASE("format_entry produces valid JSON front matter") {
 
 TEST_CASE("format_entry includes the message body after front matter") {
     std::ostringstream out;
-    format_entry("Bob", "Mars", "Greetings from Mars!", out);
+    format_entry(out, "Bob", "Mars", "Greetings from Mars!");
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -180,7 +180,7 @@ TEST_CASE("format_entry includes the message body after front matter") {
 
 TEST_CASE("format_entry returns zero on success") {
     std::ostringstream out;
-    CHECK(format_entry("A", "B", "C", out) == 0);
+    CHECK(format_entry(out, "A", "B", "C") == 0);
 }
 
 TEST_CASE("format_entry with explicit timestamp formats date correctly") {
@@ -188,7 +188,7 @@ TEST_CASE("format_entry with explicit timestamp formats date correctly") {
     // 2024-07-01T23:25:08 UTC
     auto tp = std::chrono::sys_days{std::chrono::year{2024}/7/1}
             + std::chrono::hours{23} + std::chrono::minutes{25} + std::chrono::seconds{8};
-    format_entry("Alice", "Wonderland", "Hello!", out, tp);
+    format_entry(out, "Alice", "Wonderland", "Hello!", tp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -255,7 +255,7 @@ TEST_CASE("generate_entry_filename with short author") {
 TEST_CASE("format_entry safely serializes HTML/script injection in author field") {
     std::ostringstream out;
     std::string xss = "<script>alert('xss')</script>";
-    format_entry(xss, "safe", "safe", out);
+    format_entry(out, xss, "safe", "safe");
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -275,7 +275,7 @@ TEST_CASE("format_entry safely serializes HTML/script injection in author field"
 TEST_CASE("format_entry safely serializes HTML/script injection in message field") {
     std::ostringstream out;
     std::string xss = "<img src=x onerror=alert(1)>";
-    format_entry("safe", "safe", xss, out);
+    format_entry(out, "safe", "safe", xss);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -327,7 +327,7 @@ TEST_CASE("unpack_form_data with XSS in values") {
 TEST_CASE("format_entry handles SQL injection attempt in author") {
     std::ostringstream out;
     std::string sqli = "'; DROP TABLE entries; --";
-    format_entry(sqli, "safe", "safe", out);
+    format_entry(out, sqli, "safe", "safe");
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -373,7 +373,7 @@ TEST_CASE("urlencode roundtrip preserves path traversal attempts literally") {
 
 TEST_CASE("format_entry preserves path traversal as literal text in JSON") {
     std::ostringstream out;
-    format_entry("../../etc/passwd", "safe", "safe", out);
+    format_entry(out, "../../etc/passwd", "safe", "safe");
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -393,7 +393,7 @@ TEST_CASE("urlencode roundtrip handles long input") {
 TEST_CASE("format_entry handles long field values") {
     std::ostringstream out;
     std::string long_name(5000, 'X');
-    format_entry(long_name, "loc", "msg", out);
+    format_entry(out, long_name, "loc", "msg");
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -408,7 +408,7 @@ TEST_CASE("format_entry handles long field values") {
 TEST_CASE("format_entry safely handles JSON injection in author field") {
     std::ostringstream out;
     std::string json_inject = R"(","evil":"injected"})";
-    format_entry(json_inject, "safe", "safe", out);
+    format_entry(out, json_inject, "safe", "safe");
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -423,7 +423,7 @@ TEST_CASE("format_entry safely handles JSON injection in author field") {
 TEST_CASE("format_entry safely handles JSON injection in location field") {
     std::ostringstream out;
     std::string json_inject = R"("},"params":{"author":"hacked","location":"hacked"})";
-    format_entry("safe", json_inject, "safe", out);
+    format_entry(out, "safe", json_inject, "safe");
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -445,7 +445,7 @@ TEST_CASE("urlencode roundtrip handles UTF-8 sequences") {
 TEST_CASE("format_entry handles UTF-8 in all fields") {
     std::ostringstream out;
     std::string emoji = "\xF0\x9F\x8C\x8D"; // U+1F30D globe emoji
-    format_entry(emoji, emoji, emoji, out);
+    format_entry(out, emoji, emoji, emoji);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");

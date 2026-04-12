@@ -57,7 +57,7 @@ void write_to_logbook(const std::string &author,
         return;
     }
 
-    format_entry(author, location, message, logbook_stream, timestamp);
+    format_entry(logbook_stream, author, location, message, timestamp);
 
     if (!logbook_stream) {
         err << fmt::format("write_to_logbook: error writing to logbook file: {}\n", logbook_path.string());
@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
             auto message = truncate_field(arg_parser.get<std::string>("--message"), max_message_length);
 
             write_to_logbook(author, location, message, env_vars);
-            format_entry(author, location, message, std::cout);
+            format_entry(std::cout, author, location, message);
             return 0;
         } catch (const std::exception &e) {
             err << fmt::format("Exception reading variables: {}\n", e.what());
@@ -163,7 +163,7 @@ int main(int argc, char **argv) {
 
     auto &fields = validated.value();
     write_to_logbook(fields["name"], fields["location"], fields["message"], env_vars);
-    format_entry(fields["name"], fields["location"], fields["message"], std::cout);
+    format_entry(std::cout, fields["name"], fields["location"], fields["message"]);
 
     return 0;
 }
