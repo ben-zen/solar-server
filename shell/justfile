@@ -1,0 +1,25 @@
+set dotenv-load := false
+
+# Default recipe: build the shell
+default: build
+
+# Configure the Meson build directory
+setup:
+    CC=clang CXX=clang++ meson setup --reconfigure build src || CC=clang CXX=clang++ meson setup build src
+
+# Build the shell binary
+build: setup
+    meson compile -C build
+
+# Run shell tests
+test: build
+    meson test -C build -v
+
+# Remove build artifacts
+clean:
+    rm -rf build
+
+# Deploy the shell binary (requires root)
+deploy: build
+    install -d /srv/shell/messages
+    install -m 755 build/solar-shell /usr/local/bin/solar-shell
