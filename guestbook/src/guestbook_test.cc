@@ -817,6 +817,27 @@ TEST_CASE("generate_cgi_form_error uses semantic HTML elements") {
     CHECK(response.find("<ul>") != std::string::npos);
     CHECK(response.find("<nav>") != std::string::npos);
     CHECK(response.find("Return to site") != std::string::npos);
+    // Default return URL is /.
+    CHECK(response.find("href=\"/\"") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_form_error uses custom return URL") {
+    form_validation_result vr;
+    vr.ok = false;
+    vr.errors = {{"name", "required, but missing or empty"}};
+    vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
+    auto response = generate_cgi_form_error(vr, "/guestbook");
+    CHECK(response.find("href=\"/guestbook\"") != std::string::npos);
+    CHECK(response.find("href=\"/\"") == std::string::npos);
+}
+
+TEST_CASE("generate_cgi_form_error escapes return URL") {
+    form_validation_result vr;
+    vr.ok = false;
+    vr.errors = {{"name", "required, but missing or empty"}};
+    vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
+    auto response = generate_cgi_form_error(vr, "/page?a=1&b=2");
+    CHECK(response.find("href=\"/page?a=1&amp;b=2\"") != std::string::npos);
 }
 
 // ---------------------------------------------------------------------------

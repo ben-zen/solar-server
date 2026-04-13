@@ -421,8 +421,10 @@ inline std::string generate_cgi_error(HttpStatus code,
 // Generates a CGI form-validation error page.  Each submitted field is shown
 // in a description list; fields that failed validation are flagged with their
 // error reason.  The page uses only basic semantic HTML elements.
+// |return_url| controls the "Return to site" link destination.
 inline std::string generate_cgi_form_error(
-        const form_validation_result &result) {
+        const form_validation_result &result,
+        const std::string &return_url = "/") {
 
     // Build a set of field names that have errors, for quick lookup.
     std::map<std::string, std::string> error_map;
@@ -485,10 +487,10 @@ inline std::string generate_cgi_form_error(
         "  <h2>Submitted values</h2>\n"
         "  <dl>\n{2}"
         "  </dl>\n"
-        "  <nav><a href=\"/\">Return to site</a></nav>\n"
+        "  <nav><a href=\"{3}\">Return to site</a></nav>\n"
         "</body>\n"
         "</html>\n",
-        phrase, error_list, field_rows);
+        phrase, error_list, field_rows, html_escape(return_url));
 
     return generate_cgi_response(HttpStatus::bad_request,
                                  "Content-Type: text/html\r\n",

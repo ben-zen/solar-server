@@ -94,10 +94,17 @@ int main(int argc, char **argv) {
         std::string content = read_cgi_input(std::cin, content_length.value());
         auto form_data = unpack_form_data(content);
 
+        // Determine the return URL from the referring page or fall back to /.
+        std::string host = env_vars.contains("HTTP_HOST") ? env_vars["HTTP_HOST"] : "";
+        std::string redirect_url = "/";
+        if (env_vars.contains("HTTP_REFERER") && !env_vars["HTTP_REFERER"].empty()) {
+            redirect_url = sanitize_redirect_target(env_vars["HTTP_REFERER"], host);
+        }
+
         auto validated = validate_form_fields(form_data);
         if (!validated.ok) {
             err << fmt::format("CGI error: form validation failed (missing or empty name/message)\n");
-            std::cout << generate_cgi_form_error(validated);
+            std::cout << generate_cgi_form_error(validated, redirect_url);
             return 1;
         }
 
@@ -105,12 +112,6 @@ int main(int argc, char **argv) {
         auto timestamp = std::chrono::system_clock::now();
         write_to_logbook(fields["name"], fields["location"], fields["message"], env_vars, timestamp);
 
-        // Redirect back to the referring page or the site root.
-        std::string host = env_vars.contains("HTTP_HOST") ? env_vars["HTTP_HOST"] : "";
-        std::string redirect_url = "/";
-        if (env_vars.contains("HTTP_REFERER") && !env_vars["HTTP_REFERER"].empty()) {
-            redirect_url = sanitize_redirect_target(env_vars["HTTP_REFERER"], host);
-        }
         std::cout << generate_cgi_redirect(redirect_url);
         return 0;
     }
