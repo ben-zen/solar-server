@@ -124,24 +124,46 @@ inline std::map<std::string, std::string> unpack_form_data(const std::string_vie
     return form_data;
 }
 
-inline int format_entry(const std::string &author,
+inline int format_entry(std::basic_ostream<char> &output,
+                 const std::string &author,
                  const std::string &location,
                  const std::string &message,
-                 std::basic_ostream<char> &output) {
-    // An entry consists of front matter, two newlines, the message body, and a final newline.
-    // If this resembles a Hugo document to you ... yes.
-    // To that end, we should collect system status (ideally by loading & calling, but I'm not picky)
-    
-    auto timestamp = std::chrono::system_clock::now();
-    
+                 std::chrono::system_clock::time_point timestamp) {
+    // An entry is a Hugo content page with JSON front matter.
+    // Two newlines separate the front matter from the message body.
+
+    auto ts_seconds = std::chrono::floor<std::chrono::seconds>(timestamp);
+
     json front_matter{
-        {"params", json{{"author", author},{"location", location}}},
-        {"time", fmt::format("{:%F, %T}", timestamp)}
+        {"author", author},
+        {"date", fmt::format("{:%FT%T}", ts_seconds)},
+        {"location", location},
+        {"type", "guestbook"}
     };
 
     output << front_matter << std::endl << std::endl << message << std::endl;
 
     return 0;
+}
+
+// Generates a filename for a guestbook entry: YYYY-MM-DDTHH-MM-SS_authorpart.md
+// The author part consists of the first 8 alphabetic glyphs from the author name,
+// lowercased for filesystem safety.
+inline std::string generate_entry_filename(
+    const std::string &author,
+    std::chrono::system_clock::time_point timestamp) {
+
+    std::string author_part;
+    for (char ch : author) {
+        if (author_part.size() >= 8) break;
+        if (std::isalpha(static_cast<unsigned char>(ch))) {
+            author_part.push_back(
+                static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
+        }
+    }
+
+    auto ts_seconds = std::chrono::floor<std::chrono::seconds>(timestamp);
+    return fmt::format("{:%Y-%m-%dT%H-%M-%S}_{}.md", ts_seconds, author_part);
 }
 
 // ---------------------------------------------------------------------------

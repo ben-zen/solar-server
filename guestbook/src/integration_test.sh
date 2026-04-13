@@ -153,32 +153,43 @@ assert_stderr_contains "cgi-stderr-validation" "form validation failed" "$stderr
 # CGI mode with LOGBOOK — writes to the logbook file
 # -----------------------------------------------------------------------
 
-echo "--- CGI mode: writes entry to logbook file ---"
+echo "--- CGI mode: writes entry to individual file ---"
 LOGBOOK_DIR=$(mktemp -d)
-touch "$LOGBOOK_DIR/logbook.current.log"
 stdout=$(echo -n "name=Writer&location=Home&message=Logbook+test" \
     | CONTENT_LENGTH=46 LOGBOOK="$LOGBOOK_DIR" "$GUESTBOOK" 2>/dev/null) || true
 assert_stdout_contains "cgi-logbook-redirect" "Status: 303 See Other" "$stdout"
-# Verify the logbook file has content.
-logbook_content=$(cat "$LOGBOOK_DIR/logbook.current.log")
-assert_stdout_contains "cgi-logbook-author" '"author":"Writer"' "$logbook_content"
-assert_stdout_contains "cgi-logbook-message" "Logbook test" "$logbook_content"
+# Verify an individual entry file was created.
+entry_file=$(find "$LOGBOOK_DIR" -name "*.md" | head -n1)
+if [[ -n "$entry_file" ]]; then
+    logbook_content=$(cat "$entry_file")
+    assert_stdout_contains "cgi-logbook-author" '"author":"Writer"' "$logbook_content"
+    assert_stdout_contains "cgi-logbook-message" "Logbook test" "$logbook_content"
+    # Verify the filename contains the lowercased author prefix.
+    basename_entry=$(basename "$entry_file")
+    assert_stdout_contains "cgi-logbook-filename" "_writer.md" "$basename_entry"
+else
+    FAIL=$((FAIL + 1))
+    echo "FAIL [cgi-logbook-entry-file]: no .md file found in LOGBOOK directory" >&2
+    # Count the three skipped assertions.
+    FAIL=$((FAIL + 3))
+fi
 rm -rf "$LOGBOOK_DIR"
 LOGBOOK_DIR=""
 
-echo "--- CGI mode: creates logbook file on first run ---"
+echo "--- CGI mode: creates entry file on first run ---"
 LOGBOOK_DIR=$(mktemp -d)
-# Do NOT pre-create the file — ofstream with app mode should create it.
+# Do NOT pre-create any file — ofstream should create it.
 stdout=$(echo -n "name=First&location=Boot&message=Hello+world" \
     | CONTENT_LENGTH=45 LOGBOOK="$LOGBOOK_DIR" "$GUESTBOOK" 2>/dev/null) || true
 assert_stdout_contains "cgi-logbook-create" "Status: 303 See Other" "$stdout"
-# Verify the logbook file was created and has content.
-if [[ -f "$LOGBOOK_DIR/logbook.current.log" ]]; then
-    logbook_content=$(cat "$LOGBOOK_DIR/logbook.current.log")
+# Verify an entry file was created and has content.
+entry_file=$(find "$LOGBOOK_DIR" -name "*.md" | head -n1)
+if [[ -n "$entry_file" ]]; then
+    logbook_content=$(cat "$entry_file")
     assert_stdout_contains "cgi-logbook-create-author" '"author":"First"' "$logbook_content"
 else
     FAIL=$((FAIL + 1))
-    echo "FAIL [cgi-logbook-create-exists]: logbook.current.log was not created" >&2
+    echo "FAIL [cgi-logbook-create-exists]: no .md entry file was created" >&2
 fi
 rm -rf "$LOGBOOK_DIR"
 LOGBOOK_DIR=""

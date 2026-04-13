@@ -1,0 +1,16 @@
+{{ define "main" }}
+<article>
+  <header>
+    {{ with .Params.author }}
+    <h1>Note from {{ . }}</h1>
+    {{ end }}
+    {{ $dateMachine := .Date | time.Format "2006-01-02T15:04:05-07:00" }}
+    {{ $dateHuman := .Date | time.Format ":date_long" }}
+    <time datetime="{{ $dateMachine }}">{{ $dateHuman }}</time>
+    {{ with .Params.author }}
+    <p>— {{ . }}{{ with $.Params.location }}, {{ . }}{{ end }}</p>
+    {{ end }}
+  </header>
+  {{ .Content }}
+</article>
+{{ end }}

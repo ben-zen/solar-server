@@ -9,6 +9,11 @@
 #include <sstream>
 #include <string>
 
+// Standard test timestamp: 2024-07-01T23:25:08 UTC
+static const auto test_timestamp =
+    std::chrono::sys_days{std::chrono::year{2024}/7/1}
+    + std::chrono::hours{23} + std::chrono::minutes{25} + std::chrono::seconds{8};
+
 // ---------------------------------------------------------------------------
 // is_unencoded
 // ---------------------------------------------------------------------------
@@ -150,7 +155,7 @@ TEST_CASE("unpack_form_data handles empty value") {
 
 TEST_CASE("format_entry produces valid JSON front matter") {
     std::ostringstream out;
-    format_entry("Alice", "Wonderland", "Hello there!", out);
+    format_entry(out, "Alice", "Wonderland", "Hello there!", test_timestamp);
 
     std::string result = out.str();
 
@@ -161,14 +166,15 @@ TEST_CASE("format_entry produces valid JSON front matter") {
     std::string json_part = result.substr(0, double_newline);
     auto parsed = json::parse(json_part);
 
-    CHECK(parsed["params"]["author"] == "Alice");
-    CHECK(parsed["params"]["location"] == "Wonderland");
-    CHECK(parsed.contains("time"));
+    CHECK(parsed["author"] == "Alice");
+    CHECK(parsed["location"] == "Wonderland");
+    CHECK(parsed.contains("date"));
+    CHECK(parsed["type"] == "guestbook");
 }
 
 TEST_CASE("format_entry includes the message body after front matter") {
     std::ostringstream out;
-    format_entry("Bob", "Mars", "Greetings from Mars!", out);
+    format_entry(out, "Bob", "Mars", "Greetings from Mars!", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -179,7 +185,67 @@ TEST_CASE("format_entry includes the message body after front matter") {
 
 TEST_CASE("format_entry returns zero on success") {
     std::ostringstream out;
-    CHECK(format_entry("A", "B", "C", out) == 0);
+    CHECK(format_entry(out, "A", "B", "C", test_timestamp) == 0);
+}
+
+TEST_CASE("format_entry with explicit timestamp formats date correctly") {
+    std::ostringstream out;
+    format_entry(out, "Alice", "Wonderland", "Hello!", test_timestamp);
+
+    std::string result = out.str();
+    auto double_newline = result.find("\n\n");
+    auto parsed = json::parse(result.substr(0, double_newline));
+    CHECK(parsed["date"] == "2024-07-01T23:25:08");
+}
+
+// ---------------------------------------------------------------------------
+// generate_entry_filename — dated filenames for individual guestbook entries
+// ---------------------------------------------------------------------------
+
+TEST_CASE("generate_entry_filename basic case") {
+    CHECK(generate_entry_filename("Alice", test_timestamp) == "2024-07-01T23-25-08_alice.md");
+}
+
+TEST_CASE("generate_entry_filename truncates author to 8 letters") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2025}/1/15}
+            + std::chrono::hours{12} + std::chrono::minutes{0} + std::chrono::seconds{0};
+    CHECK(generate_entry_filename("BenjaminLewis", tp) == "2025-01-15T12-00-00_benjamin.md");
+}
+
+TEST_CASE("generate_entry_filename skips non-alpha characters") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2024}/3/10}
+            + std::chrono::hours{8} + std::chrono::minutes{30} + std::chrono::seconds{45};
+    CHECK(generate_entry_filename("R2-D2 Bot", tp) == "2024-03-10T08-30-45_rdbot.md");
+}
+
+TEST_CASE("generate_entry_filename with spaces in author name") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2024}/6/15}
+            + std::chrono::hours{10} + std::chrono::minutes{0} + std::chrono::seconds{0};
+    CHECK(generate_entry_filename("Bob Smith", tp) == "2024-06-15T10-00-00_bobsmith.md");
+}
+
+TEST_CASE("generate_entry_filename with empty author") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2024}/1/1}
+            + std::chrono::hours{0} + std::chrono::minutes{0} + std::chrono::seconds{0};
+    CHECK(generate_entry_filename("", tp) == "2024-01-01T00-00-00_.md");
+}
+
+TEST_CASE("generate_entry_filename with only non-alpha characters") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2024}/12/31}
+            + std::chrono::hours{23} + std::chrono::minutes{59} + std::chrono::seconds{59};
+    CHECK(generate_entry_filename("12345!@#", tp) == "2024-12-31T23-59-59_.md");
+}
+
+TEST_CASE("generate_entry_filename lowercases author letters") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2024}/7/4}
+            + std::chrono::hours{12} + std::chrono::minutes{0} + std::chrono::seconds{0};
+    CHECK(generate_entry_filename("ALICE", tp) == "2024-07-04T12-00-00_alice.md");
+}
+
+TEST_CASE("generate_entry_filename with short author") {
+    auto tp = std::chrono::sys_days{std::chrono::year{2024}/7/4}
+            + std::chrono::hours{12} + std::chrono::minutes{0} + std::chrono::seconds{0};
+    CHECK(generate_entry_filename("Bo", tp) == "2024-07-04T12-00-00_bo.md");
 }
 
 // ---------------------------------------------------------------------------
@@ -189,7 +255,7 @@ TEST_CASE("format_entry returns zero on success") {
 TEST_CASE("format_entry safely serializes HTML/script injection in author field") {
     std::ostringstream out;
     std::string xss = "<script>alert('xss')</script>";
-    format_entry(xss, "safe", "safe", out);
+    format_entry(out, xss, "safe", "safe", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -197,7 +263,7 @@ TEST_CASE("format_entry safely serializes HTML/script injection in author field"
 
     // nlohmann/json must escape angle brackets and quotes in the JSON string.
     auto parsed = json::parse(json_part);
-    CHECK(parsed["params"]["author"] == xss);
+    CHECK(parsed["author"] == xss);
 
     // The raw JSON text must not contain unescaped angle brackets that could be
     // interpreted as HTML.  nlohmann/json escapes < and > as Unicode escapes or
@@ -209,7 +275,7 @@ TEST_CASE("format_entry safely serializes HTML/script injection in author field"
 TEST_CASE("format_entry safely serializes HTML/script injection in message field") {
     std::ostringstream out;
     std::string xss = "<img src=x onerror=alert(1)>";
-    format_entry("safe", "safe", xss, out);
+    format_entry(out, "safe", "safe", xss, test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -261,7 +327,7 @@ TEST_CASE("unpack_form_data with XSS in values") {
 TEST_CASE("format_entry handles SQL injection attempt in author") {
     std::ostringstream out;
     std::string sqli = "'; DROP TABLE entries; --";
-    format_entry(sqli, "safe", "safe", out);
+    format_entry(out, sqli, "safe", "safe", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -269,7 +335,7 @@ TEST_CASE("format_entry handles SQL injection attempt in author") {
 
     auto parsed = json::parse(json_part);
     // The injection string must be stored as a literal JSON string value.
-    CHECK(parsed["params"]["author"] == sqli);
+    CHECK(parsed["author"] == sqli);
 }
 
 // ---------------------------------------------------------------------------
@@ -307,12 +373,12 @@ TEST_CASE("urlencode roundtrip preserves path traversal attempts literally") {
 
 TEST_CASE("format_entry preserves path traversal as literal text in JSON") {
     std::ostringstream out;
-    format_entry("../../etc/passwd", "safe", "safe", out);
+    format_entry(out, "../../etc/passwd", "safe", "safe", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
     auto parsed = json::parse(result.substr(0, double_newline));
-    CHECK(parsed["params"]["author"] == "../../etc/passwd");
+    CHECK(parsed["author"] == "../../etc/passwd");
 }
 
 // ---------------------------------------------------------------------------
@@ -327,12 +393,12 @@ TEST_CASE("urlencode roundtrip handles long input") {
 TEST_CASE("format_entry handles long field values") {
     std::ostringstream out;
     std::string long_name(5000, 'X');
-    format_entry(long_name, "loc", "msg", out);
+    format_entry(out, long_name, "loc", "msg", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
     auto parsed = json::parse(result.substr(0, double_newline));
-    CHECK(parsed["params"]["author"] == long_name);
+    CHECK(parsed["author"] == long_name);
 }
 
 // ---------------------------------------------------------------------------
@@ -342,7 +408,7 @@ TEST_CASE("format_entry handles long field values") {
 TEST_CASE("format_entry safely handles JSON injection in author field") {
     std::ostringstream out;
     std::string json_inject = R"(","evil":"injected"})";
-    format_entry(json_inject, "safe", "safe", out);
+    format_entry(out, json_inject, "safe", "safe", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -350,20 +416,20 @@ TEST_CASE("format_entry safely handles JSON injection in author field") {
 
     auto parsed = json::parse(json_part);
     // The injected JSON must not create a new key; it must be a literal string.
-    CHECK(parsed["params"]["author"] == json_inject);
+    CHECK(parsed["author"] == json_inject);
     CHECK_FALSE(parsed.contains("evil"));
 }
 
 TEST_CASE("format_entry safely handles JSON injection in location field") {
     std::ostringstream out;
     std::string json_inject = R"("},"params":{"author":"hacked","location":"hacked"})";
-    format_entry("safe", json_inject, "safe", out);
+    format_entry(out, "safe", json_inject, "safe", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
     auto parsed = json::parse(result.substr(0, double_newline));
-    CHECK(parsed["params"]["author"] == "safe");
-    CHECK(parsed["params"]["location"] == json_inject);
+    CHECK(parsed["author"] == "safe");
+    CHECK(parsed["location"] == json_inject);
 }
 
 // ---------------------------------------------------------------------------
@@ -379,13 +445,13 @@ TEST_CASE("urlencode roundtrip handles UTF-8 sequences") {
 TEST_CASE("format_entry handles UTF-8 in all fields") {
     std::ostringstream out;
     std::string emoji = "\xF0\x9F\x8C\x8D"; // U+1F30D globe emoji
-    format_entry(emoji, emoji, emoji, out);
+    format_entry(out, emoji, emoji, emoji, test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
     auto parsed = json::parse(result.substr(0, double_newline));
-    CHECK(parsed["params"]["author"] == emoji);
-    CHECK(parsed["params"]["location"] == emoji);
+    CHECK(parsed["author"] == emoji);
+    CHECK(parsed["location"] == emoji);
 
     std::string body = result.substr(double_newline + 2);
     CHECK(body.find(emoji) != std::string::npos);
