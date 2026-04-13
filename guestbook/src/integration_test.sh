@@ -114,13 +114,22 @@ echo "--- CGI mode: missing required field (no message) returns 400 ---"
 stdout=$(echo -n "name=Alice&location=here" \
     | CONTENT_LENGTH=24 "$GUESTBOOK" 2>/dev/null) || true
 assert_stdout_contains "cgi-missing-message-400" "Status: 400 Bad Request" "$stdout"
-assert_stdout_contains "cgi-missing-message-detail" "name" "$stdout"
+assert_stdout_contains "cgi-missing-message-detail" "message" "$stdout"
+assert_stdout_contains "cgi-missing-message-flag" "(error)" "$stdout"
 
 echo "--- CGI mode: missing name returns 400 ---"
 stdout=$(echo -n "location=here&message=test" \
     | CONTENT_LENGTH=25 "$GUESTBOOK" 2>/dev/null) || true
 assert_stdout_contains "cgi-missing-name-400" "Status: 400 Bad Request" "$stdout"
 assert_stdout_contains "cgi-missing-name-detail" "name" "$stdout"
+assert_stdout_contains "cgi-missing-name-flag" "(error)" "$stdout"
+
+echo "--- CGI mode: missing both name and message returns 400 with both errors ---"
+stdout=$(echo -n "location=here" \
+    | CONTENT_LENGTH=13 "$GUESTBOOK" 2>/dev/null) || true
+assert_stdout_contains "cgi-missing-both-400" "Status: 400 Bad Request" "$stdout"
+assert_stdout_contains "cgi-missing-both-name" "<strong>name</strong>" "$stdout"
+assert_stdout_contains "cgi-missing-both-message" "<strong>message</strong>" "$stdout"
 
 echo "--- CGI mode: zero content returns 400 with detail ---"
 stdout=$(echo -n "" | CONTENT_LENGTH=0 "$GUESTBOOK" 2>/dev/null) || true

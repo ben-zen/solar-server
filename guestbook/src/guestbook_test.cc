@@ -542,24 +542,31 @@ TEST_CASE("validate_form_fields accepts valid form data") {
         {"name", "Alice"}, {"location", "Seattle"}, {"message", "Hello!"}
     };
     auto result = validate_form_fields(form);
-    REQUIRE(result.has_value());
-    CHECK(result->at("name") == "Alice");
-    CHECK(result->at("location") == "Seattle");
-    CHECK(result->at("message") == "Hello!");
+    REQUIRE(result.ok);
+    CHECK(result.fields.at("name") == "Alice");
+    CHECK(result.fields.at("location") == "Seattle");
+    CHECK(result.fields.at("message") == "Hello!");
+    CHECK(result.errors.empty());
 }
 
 TEST_CASE("validate_form_fields rejects missing name") {
     std::map<std::string, std::string> form = {
         {"location", "Seattle"}, {"message", "Hello!"}
     };
-    CHECK_FALSE(validate_form_fields(form).has_value());
+    auto result = validate_form_fields(form);
+    CHECK_FALSE(result.ok);
+    REQUIRE(result.errors.size() == 1);
+    CHECK(result.errors[0].field == "name");
 }
 
 TEST_CASE("validate_form_fields rejects missing message") {
     std::map<std::string, std::string> form = {
         {"name", "Alice"}, {"location", "Seattle"}
     };
-    CHECK_FALSE(validate_form_fields(form).has_value());
+    auto result = validate_form_fields(form);
+    CHECK_FALSE(result.ok);
+    REQUIRE(result.errors.size() == 1);
+    CHECK(result.errors[0].field == "message");
 }
 
 TEST_CASE("validate_form_fields allows missing location") {
@@ -567,22 +574,39 @@ TEST_CASE("validate_form_fields allows missing location") {
         {"name", "Alice"}, {"message", "Hello!"}
     };
     auto result = validate_form_fields(form);
-    REQUIRE(result.has_value());
-    CHECK(result->at("location") == "");
+    REQUIRE(result.ok);
+    CHECK(result.fields.at("location") == "");
 }
 
 TEST_CASE("validate_form_fields rejects empty name") {
     std::map<std::string, std::string> form = {
         {"name", ""}, {"location", "here"}, {"message", "Hello!"}
     };
-    CHECK_FALSE(validate_form_fields(form).has_value());
+    auto result = validate_form_fields(form);
+    CHECK_FALSE(result.ok);
+    REQUIRE(result.errors.size() == 1);
+    CHECK(result.errors[0].field == "name");
 }
 
 TEST_CASE("validate_form_fields rejects empty message") {
     std::map<std::string, std::string> form = {
         {"name", "Alice"}, {"location", "here"}, {"message", ""}
     };
-    CHECK_FALSE(validate_form_fields(form).has_value());
+    auto result = validate_form_fields(form);
+    CHECK_FALSE(result.ok);
+    REQUIRE(result.errors.size() == 1);
+    CHECK(result.errors[0].field == "message");
+}
+
+TEST_CASE("validate_form_fields reports both name and message errors") {
+    std::map<std::string, std::string> form = {
+        {"location", "here"}
+    };
+    auto result = validate_form_fields(form);
+    CHECK_FALSE(result.ok);
+    REQUIRE(result.errors.size() == 2);
+    CHECK(result.errors[0].field == "name");
+    CHECK(result.errors[1].field == "message");
 }
 
 TEST_CASE("validate_form_fields truncates long fields") {
@@ -592,10 +616,10 @@ TEST_CASE("validate_form_fields truncates long fields") {
         {"message", std::string(3000, 'Z')}
     };
     auto result = validate_form_fields(form);
-    REQUIRE(result.has_value());
-    CHECK(result->at("name").size() == max_author_length);
-    CHECK(result->at("location").size() == max_location_length);
-    CHECK(result->at("message").size() == max_message_length);
+    REQUIRE(result.ok);
+    CHECK(result.fields.at("name").size() == max_author_length);
+    CHECK(result.fields.at("location").size() == max_location_length);
+    CHECK(result.fields.at("message").size() == max_message_length);
 }
 
 // ---------------------------------------------------------------------------
@@ -721,6 +745,78 @@ TEST_CASE("generate_cgi_error with 3xx code returns 500") {
     auto response = generate_cgi_error(HttpStatus::see_other, "not an error");
     CHECK(response.find("Status: 500 Internal Server Error") != std::string::npos);
     CHECK(response.find("Status: 303") == std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// generate_cgi_form_error — form-validation error page with per-field detail
+// ---------------------------------------------------------------------------
+
+TEST_CASE("generate_cgi_form_error produces 400 response") {
+    form_validation_result vr;
+    vr.ok = false;
+    vr.errors = {{"name", "required, but missing or empty"}};
+    vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
+    auto response = generate_cgi_form_error(vr);
+    CHECK(response.find("Status: 400 Bad Request") != std::string::npos);
+    CHECK(response.find("Content-Type: text/html") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_form_error lists failing fields in error summary") {
+    form_validation_result vr;
+    vr.ok = false;
+    vr.errors = {{"name", "required, but missing or empty"},
+                 {"message", "required, but missing or empty"}};
+    vr.fields = {{"name", ""}, {"location", "here"}, {"message", ""}};
+    auto response = generate_cgi_form_error(vr);
+    CHECK(response.find("<strong>name</strong>") != std::string::npos);
+    CHECK(response.find("<strong>message</strong>") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_form_error shows submitted values") {
+    form_validation_result vr;
+    vr.ok = false;
+    vr.errors = {{"message", "required, but missing or empty"}};
+    vr.fields = {{"name", "Alice"}, {"location", "Seattle"}, {"message", ""}};
+    auto response = generate_cgi_form_error(vr);
+    CHECK(response.find("Alice") != std::string::npos);
+    CHECK(response.find("Seattle") != std::string::npos);
+    CHECK(response.find("(empty)") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_form_error flags the invalid field with (error)") {
+    form_validation_result vr;
+    vr.ok = false;
+    vr.errors = {{"name", "required, but missing or empty"}};
+    vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
+    auto response = generate_cgi_form_error(vr);
+    // The name field should be flagged.
+    CHECK(response.find("Name <em>(error)</em>") != std::string::npos);
+    // The message field should not be flagged.
+    CHECK(response.find("Message <em>(error)</em>") == std::string::npos);
+}
+
+TEST_CASE("generate_cgi_form_error escapes HTML in field values") {
+    form_validation_result vr;
+    vr.ok = false;
+    vr.errors = {{"message", "required, but missing or empty"}};
+    vr.fields = {{"name", "<script>alert(1)</script>"}, {"location", ""}, {"message", ""}};
+    auto response = generate_cgi_form_error(vr);
+    CHECK(response.find("<script>") == std::string::npos);
+    CHECK(response.find("&lt;script&gt;") != std::string::npos);
+}
+
+TEST_CASE("generate_cgi_form_error uses semantic HTML elements") {
+    form_validation_result vr;
+    vr.ok = false;
+    vr.errors = {{"name", "required, but missing or empty"}};
+    vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
+    auto response = generate_cgi_form_error(vr);
+    CHECK(response.find("<dl>") != std::string::npos);
+    CHECK(response.find("<dt>") != std::string::npos);
+    CHECK(response.find("<dd>") != std::string::npos);
+    CHECK(response.find("<ul>") != std::string::npos);
+    CHECK(response.find("<nav>") != std::string::npos);
+    CHECK(response.find("Return to site") != std::string::npos);
 }
 
 // ---------------------------------------------------------------------------

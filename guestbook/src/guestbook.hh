@@ -13,6 +13,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <vector>
 
 #include <fmt/chrono.h>
 #include <fmt/format.h>
@@ -294,21 +295,41 @@ inline std::string truncate_field(const std::string &value, size_t max_length) {
     return value.substr(0, max_length);
 }
 
+// Describes a single field-level validation error.
+struct field_error {
+    std::string field;   // e.g. "name", "message"
+    std::string reason;  // human-readable explanation
+};
+
+// Result of form validation.  On success |ok| is true and |fields| contains
+// the sanitized values.  On failure |ok| is false and |errors| lists every
+// field that failed, while |fields| still holds whatever values were present
+// (for display in the error page).
+struct form_validation_result {
+    bool ok = false;
+    std::map<std::string, std::string> fields;
+    std::vector<field_error> errors;
+};
+
 // Validates required form fields are present and non-empty (name, message),
 // truncates all fields to their respective max lengths, and returns the
 // sanitized fields. Location is optional (defaults to empty).
-// Returns std::nullopt if validation fails.
-inline std::optional<std::map<std::string, std::string>> validate_form_fields(
+// On failure the result contains per-field error descriptions.
+inline form_validation_result validate_form_fields(
         const std::map<std::string, std::string> &form_data) {
 
+    form_validation_result result;
+
     auto name_it = form_data.find("name");
-    if (name_it == form_data.end() || name_it->second.empty()) {
-        return std::nullopt;
+    std::string name_value = (name_it != form_data.end()) ? name_it->second : "";
+    if (name_value.empty()) {
+        result.errors.push_back({"name", "required, but missing or empty"});
     }
 
     auto message_it = form_data.find("message");
-    if (message_it == form_data.end() || message_it->second.empty()) {
-        return std::nullopt;
+    std::string message_value = (message_it != form_data.end()) ? message_it->second : "";
+    if (message_value.empty()) {
+        result.errors.push_back({"message", "required, but missing or empty"});
     }
 
     std::string location{};
@@ -317,10 +338,10 @@ inline std::optional<std::map<std::string, std::string>> validate_form_fields(
         location = location_it->second;
     }
 
-    std::map<std::string, std::string> result;
-    result["name"] = truncate_field(name_it->second, max_author_length);
-    result["location"] = truncate_field(location, max_location_length);
-    result["message"] = truncate_field(message_it->second, max_message_length);
+    result.fields["name"] = truncate_field(name_value, max_author_length);
+    result.fields["location"] = truncate_field(location, max_location_length);
+    result.fields["message"] = truncate_field(message_value, max_message_length);
+    result.ok = result.errors.empty();
     return result;
 }
 
@@ -393,6 +414,83 @@ inline std::string generate_cgi_error(HttpStatus code,
         phrase, body_detail);
 
     return generate_cgi_response(code,
+                                 "Content-Type: text/html\r\n",
+                                 body);
+}
+
+// Generates a CGI form-validation error page.  Each submitted field is shown
+// in a description list; fields that failed validation are flagged with their
+// error reason.  The page uses only basic semantic HTML elements.
+inline std::string generate_cgi_form_error(
+        const form_validation_result &result) {
+
+    // Build a set of field names that have errors, for quick lookup.
+    std::map<std::string, std::string> error_map;
+    for (const auto &e : result.errors) {
+        error_map[e.field] = e.reason;
+    }
+
+    // Construct the list of error summaries.
+    std::string error_list;
+    for (const auto &e : result.errors) {
+        error_list += fmt::format(
+            "    <li><strong>{}</strong>: {}</li>\n",
+            html_escape(e.field), html_escape(e.reason));
+    }
+
+    // Construct description list of submitted values, flagging bad fields.
+    // Field display order: name, location, message.
+    static const std::vector<std::pair<std::string, std::string>> field_labels = {
+        {"name", "Name"},
+        {"location", "Location"},
+        {"message", "Message"},
+    };
+
+    std::string field_rows;
+    for (const auto &[key, label] : field_labels) {
+        auto value_it = result.fields.find(key);
+        std::string safe_value = (value_it != result.fields.end())
+            ? html_escape(value_it->second) : "";
+
+        auto err_it = error_map.find(key);
+        if (err_it != error_map.end()) {
+            field_rows += fmt::format(
+                "    <dt>{} <em>(error)</em></dt>\n"
+                "    <dd><code>{}</code></dd>\n"
+                "    <dd><em>{}</em></dd>\n",
+                html_escape(label),
+                safe_value.empty() ? std::string("(empty)") : safe_value,
+                html_escape(err_it->second));
+        } else {
+            field_rows += fmt::format(
+                "    <dt>{}</dt>\n"
+                "    <dd><code>{}</code></dd>\n",
+                html_escape(label),
+                safe_value.empty() ? std::string("(empty)") : safe_value);
+        }
+    }
+
+    auto phrase = status_phrase(HttpStatus::bad_request);
+
+    std::string body = fmt::format(
+        "<!DOCTYPE html>\n"
+        "<html lang=\"en\">\n"
+        "<head><meta charset=\"utf-8\"><title>{0}</title></head>\n"
+        "<body>\n"
+        "  <h1>{0}</h1>\n"
+        "  <p>The form could not be submitted. "
+        "The following fields have errors:</p>\n"
+        "  <ul>\n{1}"
+        "  </ul>\n"
+        "  <h2>Submitted values</h2>\n"
+        "  <dl>\n{2}"
+        "  </dl>\n"
+        "  <nav><a href=\"/\">Return to site</a></nav>\n"
+        "</body>\n"
+        "</html>\n",
+        phrase, error_list, field_rows);
+
+    return generate_cgi_response(HttpStatus::bad_request,
                                  "Content-Type: text/html\r\n",
                                  body);
 }
