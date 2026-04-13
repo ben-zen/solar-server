@@ -128,8 +128,7 @@ inline int format_entry(std::basic_ostream<char> &output,
                  const std::string &author,
                  const std::string &location,
                  const std::string &message,
-                 std::chrono::system_clock::time_point timestamp
-                     = std::chrono::system_clock::now()) {
+                 std::chrono::system_clock::time_point timestamp) {
     // An entry is a Hugo content page with JSON front matter.
     // Two newlines separate the front matter from the message body.
 

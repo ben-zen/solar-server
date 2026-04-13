@@ -34,7 +34,8 @@ std::map<std::string, std::string> get_env_vars() {
 void write_to_logbook(const std::string &author,
                       const std::string &location,
                       const std::string &message,
-                      const std::map<std::string, std::string> &env_vars) {
+                      const std::map<std::string, std::string> &env_vars,
+                      std::chrono::system_clock::time_point timestamp) {
     if (!env_vars.contains("LOGBOOK")) {
         err << fmt::format("write_to_logbook: LOGBOOK environment variable is not set\n");
         return;
@@ -47,7 +48,6 @@ void write_to_logbook(const std::string &author,
         return;
     }
 
-    auto timestamp = std::chrono::system_clock::now();
     auto filename = generate_entry_filename(author, timestamp);
     std::filesystem::path logbook_path = std::filesystem::path(logbook_dir) / filename;
     std::ofstream logbook_stream(logbook_path);
@@ -103,7 +103,8 @@ int main(int argc, char **argv) {
         }
 
         auto &fields = validated.value();
-        write_to_logbook(fields["name"], fields["location"], fields["message"], env_vars);
+        auto timestamp = std::chrono::system_clock::now();
+        write_to_logbook(fields["name"], fields["location"], fields["message"], env_vars, timestamp);
 
         // Redirect back to the referring page or the site root.
         std::string host = env_vars.contains("HTTP_HOST") ? env_vars["HTTP_HOST"] : "";
@@ -136,8 +137,9 @@ int main(int argc, char **argv) {
             auto location = truncate_field(arg_parser.get<std::string>("--location"), max_location_length);
             auto message = truncate_field(arg_parser.get<std::string>("--message"), max_message_length);
 
-            write_to_logbook(author, location, message, env_vars);
-            format_entry(std::cout, author, location, message);
+            auto timestamp = std::chrono::system_clock::now();
+            write_to_logbook(author, location, message, env_vars, timestamp);
+            format_entry(std::cout, author, location, message, timestamp);
             return 0;
         } catch (const std::exception &e) {
             err << fmt::format("Exception reading variables: {}\n", e.what());
@@ -162,8 +164,9 @@ int main(int argc, char **argv) {
     }
 
     auto &fields = validated.value();
-    write_to_logbook(fields["name"], fields["location"], fields["message"], env_vars);
-    format_entry(std::cout, fields["name"], fields["location"], fields["message"]);
+    auto timestamp = std::chrono::system_clock::now();
+    write_to_logbook(fields["name"], fields["location"], fields["message"], env_vars, timestamp);
+    format_entry(std::cout, fields["name"], fields["location"], fields["message"], timestamp);
 
     return 0;
 }

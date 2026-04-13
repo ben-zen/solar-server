@@ -9,6 +9,11 @@
 #include <sstream>
 #include <string>
 
+// Standard test timestamp: 2024-07-01T23:25:08 UTC
+static const auto test_timestamp =
+    std::chrono::sys_days{std::chrono::year{2024}/7/1}
+    + std::chrono::hours{23} + std::chrono::minutes{25} + std::chrono::seconds{8};
+
 // ---------------------------------------------------------------------------
 // is_unencoded
 // ---------------------------------------------------------------------------
@@ -150,7 +155,7 @@ TEST_CASE("unpack_form_data handles empty value") {
 
 TEST_CASE("format_entry produces valid JSON front matter") {
     std::ostringstream out;
-    format_entry(out, "Alice", "Wonderland", "Hello there!");
+    format_entry(out, "Alice", "Wonderland", "Hello there!", test_timestamp);
 
     std::string result = out.str();
 
@@ -169,7 +174,7 @@ TEST_CASE("format_entry produces valid JSON front matter") {
 
 TEST_CASE("format_entry includes the message body after front matter") {
     std::ostringstream out;
-    format_entry(out, "Bob", "Mars", "Greetings from Mars!");
+    format_entry(out, "Bob", "Mars", "Greetings from Mars!", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -180,15 +185,12 @@ TEST_CASE("format_entry includes the message body after front matter") {
 
 TEST_CASE("format_entry returns zero on success") {
     std::ostringstream out;
-    CHECK(format_entry(out, "A", "B", "C") == 0);
+    CHECK(format_entry(out, "A", "B", "C", test_timestamp) == 0);
 }
 
 TEST_CASE("format_entry with explicit timestamp formats date correctly") {
     std::ostringstream out;
-    // 2024-07-01T23:25:08 UTC
-    auto tp = std::chrono::sys_days{std::chrono::year{2024}/7/1}
-            + std::chrono::hours{23} + std::chrono::minutes{25} + std::chrono::seconds{8};
-    format_entry(out, "Alice", "Wonderland", "Hello!", tp);
+    format_entry(out, "Alice", "Wonderland", "Hello!", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -201,9 +203,7 @@ TEST_CASE("format_entry with explicit timestamp formats date correctly") {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("generate_entry_filename basic case") {
-    auto tp = std::chrono::sys_days{std::chrono::year{2024}/7/1}
-            + std::chrono::hours{23} + std::chrono::minutes{25} + std::chrono::seconds{8};
-    CHECK(generate_entry_filename("Alice", tp) == "2024-07-01T23-25-08_alice.md");
+    CHECK(generate_entry_filename("Alice", test_timestamp) == "2024-07-01T23-25-08_alice.md");
 }
 
 TEST_CASE("generate_entry_filename truncates author to 8 letters") {
@@ -255,7 +255,7 @@ TEST_CASE("generate_entry_filename with short author") {
 TEST_CASE("format_entry safely serializes HTML/script injection in author field") {
     std::ostringstream out;
     std::string xss = "<script>alert('xss')</script>";
-    format_entry(out, xss, "safe", "safe");
+    format_entry(out, xss, "safe", "safe", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -275,7 +275,7 @@ TEST_CASE("format_entry safely serializes HTML/script injection in author field"
 TEST_CASE("format_entry safely serializes HTML/script injection in message field") {
     std::ostringstream out;
     std::string xss = "<img src=x onerror=alert(1)>";
-    format_entry(out, "safe", "safe", xss);
+    format_entry(out, "safe", "safe", xss, test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -327,7 +327,7 @@ TEST_CASE("unpack_form_data with XSS in values") {
 TEST_CASE("format_entry handles SQL injection attempt in author") {
     std::ostringstream out;
     std::string sqli = "'; DROP TABLE entries; --";
-    format_entry(out, sqli, "safe", "safe");
+    format_entry(out, sqli, "safe", "safe", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -373,7 +373,7 @@ TEST_CASE("urlencode roundtrip preserves path traversal attempts literally") {
 
 TEST_CASE("format_entry preserves path traversal as literal text in JSON") {
     std::ostringstream out;
-    format_entry(out, "../../etc/passwd", "safe", "safe");
+    format_entry(out, "../../etc/passwd", "safe", "safe", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -393,7 +393,7 @@ TEST_CASE("urlencode roundtrip handles long input") {
 TEST_CASE("format_entry handles long field values") {
     std::ostringstream out;
     std::string long_name(5000, 'X');
-    format_entry(out, long_name, "loc", "msg");
+    format_entry(out, long_name, "loc", "msg", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -408,7 +408,7 @@ TEST_CASE("format_entry handles long field values") {
 TEST_CASE("format_entry safely handles JSON injection in author field") {
     std::ostringstream out;
     std::string json_inject = R"(","evil":"injected"})";
-    format_entry(out, json_inject, "safe", "safe");
+    format_entry(out, json_inject, "safe", "safe", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -423,7 +423,7 @@ TEST_CASE("format_entry safely handles JSON injection in author field") {
 TEST_CASE("format_entry safely handles JSON injection in location field") {
     std::ostringstream out;
     std::string json_inject = R"("},"params":{"author":"hacked","location":"hacked"})";
-    format_entry(out, "safe", json_inject, "safe");
+    format_entry(out, "safe", json_inject, "safe", test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");
@@ -445,7 +445,7 @@ TEST_CASE("urlencode roundtrip handles UTF-8 sequences") {
 TEST_CASE("format_entry handles UTF-8 in all fields") {
     std::ostringstream out;
     std::string emoji = "\xF0\x9F\x8C\x8D"; // U+1F30D globe emoji
-    format_entry(out, emoji, emoji, emoji);
+    format_entry(out, emoji, emoji, emoji, test_timestamp);
 
     std::string result = out.str();
     auto double_newline = result.find("\n\n");

@@ -170,8 +170,8 @@ if [[ -n "$entry_file" ]]; then
 else
     FAIL=$((FAIL + 1))
     echo "FAIL [cgi-logbook-entry-file]: no .md file found in LOGBOOK directory" >&2
-    # Count the two skipped assertions.
-    FAIL=$((FAIL + 2))
+    # Count the three skipped assertions.
+    FAIL=$((FAIL + 3))
 fi
 rm -rf "$LOGBOOK_DIR"
 LOGBOOK_DIR=""
