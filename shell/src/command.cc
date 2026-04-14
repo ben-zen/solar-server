@@ -119,7 +119,7 @@ read_messages(const std::string &messages_dir) {
     }
 
     // Sort by filename (newest first, assuming timestamp prefixes).
-    std::sort(paths.begin(), paths.end(), std::greater<fs::path>());
+    std::sort(paths.begin(), paths.end(), std::greater<>());
 
     for (const auto &p : paths) {
         std::ifstream file(p);

@@ -7,6 +7,7 @@
 #include <cerrno>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -91,7 +92,7 @@ std::vector<guestbook_entry> read_recent_entries(const std::string &logbook_dir,
     }
 
     // Sort descending by filename (filenames are timestamped).
-    std::sort(paths.begin(), paths.end(), std::greater<fs::path>());
+    std::sort(paths.begin(), paths.end(), std::greater<>());
 
     int count = 0;
     for (const auto &p : paths) {
