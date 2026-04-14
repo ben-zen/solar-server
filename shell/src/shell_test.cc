@@ -21,11 +21,6 @@
 
 namespace fs = std::filesystem;
 
-// Standard test timestamp: 2024-07-01T23:25:08 UTC
-static const auto test_timestamp =
-    std::chrono::sys_days{std::chrono::year{2024}/7/1}
-    + std::chrono::hours{23} + std::chrono::minutes{25} + std::chrono::seconds{8};
-
 // ---------------------------------------------------------------------------
 // Helper: create a temporary directory that cleans up after itself.
 // ---------------------------------------------------------------------------
@@ -34,11 +29,9 @@ struct tmp_dir {
     fs::path path;
 
     tmp_dir() {
-        path = fs::temp_directory_path() / "solar-shell-test-XXXXXX";
-        // Use a unique name per test run.
         path = fs::temp_directory_path()
              / fmt::format("solar-shell-test-{}", std::chrono::steady_clock::now()
-                           .time_since_epoch().count());
+                            .time_since_epoch().count());
         fs::create_directories(path);
     }
 
@@ -53,43 +46,21 @@ struct tmp_dir {
 };
 
 // ---------------------------------------------------------------------------
-// guestbook_io: write_entry
+// Helper: write a guestbook entry file manually for testing.
+// This mirrors the format produced by the guestbook binary without
+// depending on it.
 // ---------------------------------------------------------------------------
 
-TEST_CASE("write_entry creates a file with correct format") {
-    tmp_dir dir;
-    bool ok = write_entry(dir.path.string(), "Alice", "Seattle", "Hello!", test_timestamp);
-    CHECK(ok);
-
-    // Verify a .md file was created.
-    int file_count = 0;
-    fs::path found;
-    for (const auto &entry : fs::directory_iterator(dir.path)) {
-        if (entry.path().extension() == ".md") {
-            ++file_count;
-            found = entry.path();
-        }
-    }
-    CHECK(file_count == 1);
-
-    // Verify the filename contains the timestamp and author.
-    auto filename = found.filename().string();
-    CHECK(filename.find("2024-07-01T23-25-08") != std::string::npos);
-    CHECK(filename.find("alice") != std::string::npos);
-
-    // Verify the content has JSON front matter.
-    std::ifstream file(found);
-    std::string first_line;
-    std::getline(file, first_line);
-    CHECK(first_line.find("\"author\"") != std::string::npos);
-    CHECK(first_line.find("Alice") != std::string::npos);
-    CHECK(first_line.find("\"type\"") != std::string::npos);
-    CHECK(first_line.find("guestbook") != std::string::npos);
-}
-
-TEST_CASE("write_entry fails for nonexistent directory") {
-    bool ok = write_entry("/nonexistent/path", "Bob", "", "Hi", test_timestamp);
-    CHECK_FALSE(ok);
+static void create_test_entry(const fs::path &dir,
+                              const std::string &filename,
+                              const std::string &author,
+                              const std::string &location,
+                              const std::string &date,
+                              const std::string &message) {
+    std::ofstream out(dir / filename);
+    out << fmt::format(R"({{"author":"{}","date":"{}","location":"{}","type":"guestbook"}})",
+                       author, date, location)
+        << "\n\n" << message << "\n";
 }
 
 // ---------------------------------------------------------------------------
@@ -101,15 +72,13 @@ TEST_CASE("read_recent_entries returns empty for nonexistent directory") {
     CHECK(entries.empty());
 }
 
-TEST_CASE("read_recent_entries reads entries written by write_entry") {
+TEST_CASE("read_recent_entries reads manually-created entries") {
     tmp_dir dir;
 
-    // Write two entries at different timestamps.
-    auto ts1 = test_timestamp;
-    auto ts2 = test_timestamp + std::chrono::hours{1};
-
-    write_entry(dir.path.string(), "Alice", "Seattle", "First!", ts1);
-    write_entry(dir.path.string(), "Bob", "Portland", "Second!", ts2);
+    create_test_entry(dir.path, "2024-07-01T23-25-08_alice.md",
+                      "Alice", "Seattle", "2024-07-01T23:25:08", "First!");
+    create_test_entry(dir.path, "2024-07-02T00-25-08_bob.md",
+                      "Bob", "Portland", "2024-07-02T00:25:08", "Second!");
 
     auto entries = read_recent_entries(dir.path.string(), 10);
     CHECK(entries.size() == 2);
@@ -125,9 +94,10 @@ TEST_CASE("read_recent_entries respects max_entries limit") {
     tmp_dir dir;
 
     for (int i = 0; i < 5; ++i) {
-        auto ts = test_timestamp + std::chrono::hours{i};
-        write_entry(dir.path.string(),
-                    fmt::format("User{}", i), "", fmt::format("Msg{}", i), ts);
+        create_test_entry(dir.path,
+                          fmt::format("2024-07-0{}T12-00-00_user.md", i + 1),
+                          fmt::format("User{}", i), "", fmt::format("2024-07-0{}T12:00:00", i + 1),
+                          fmt::format("Msg{}", i));
     }
 
     auto entries = read_recent_entries(dir.path.string(), 3);
@@ -183,11 +153,21 @@ TEST_CASE("text_renderer::prompt reads a line from input") {
     CHECK(out.str().find("Name:") != std::string::npos);
 }
 
+TEST_CASE("text_renderer::at_eof returns true after stream exhaustion") {
+    std::ostringstream out;
+    std::istringstream in{""};
+    text_renderer r{out, in, 40};
+
+    auto result = r.prompt(">");
+    CHECK(result.empty());
+    CHECK(r.at_eof());
+}
+
 // ---------------------------------------------------------------------------
 // text_renderer: show_entries
 // ---------------------------------------------------------------------------
 
-TEST_CASE("text_renderer::show_entries displays entries") {
+TEST_CASE("text_renderer::show_entries displays entries with separators") {
     std::ostringstream out;
     std::istringstream in;
     text_renderer r{out, in, 40};
@@ -204,6 +184,8 @@ TEST_CASE("text_renderer::show_entries displays entries") {
     CHECK(output.find("Hello!") != std::string::npos);
     CHECK(output.find("Bob") != std::string::npos);
     CHECK(output.find("Hi there") != std::string::npos);
+    // Visual separator after each entry.
+    CHECK(output.find("---") != std::string::npos);
 }
 
 TEST_CASE("text_renderer::show_entries handles empty list") {
@@ -213,6 +195,24 @@ TEST_CASE("text_renderer::show_entries handles empty list") {
 
     r.show_entries({});
     CHECK(out.str().find("no entries yet") != std::string::npos);
+}
+
+TEST_CASE("text_renderer::show_entries strips ANSI escape sequences from entries") {
+    std::ostringstream out;
+    std::istringstream in;
+    text_renderer r{out, in, 40};
+
+    // Entry with embedded ESC sequence (ANSI injection attempt).
+    std::vector<guestbook_entry> entries{
+        {"Evil\033[31mUser", "", "2024-07-01", "Injected\033[0m text"},
+    };
+
+    r.show_entries(entries);
+    auto output = out.str();
+    // The ESC character (0x1B) should be stripped from the untrusted fields.
+    // The only ESC sequences should be from our own ANSI formatting.
+    CHECK(output.find("EvilUser") != std::string::npos);
+    CHECK(output.find("Injected text") != std::string::npos);
 }
 
 // ---------------------------------------------------------------------------
@@ -251,29 +251,9 @@ TEST_CASE("make_quit_command sets running to false") {
 // command: make_sign_guestbook_command
 // ---------------------------------------------------------------------------
 
-TEST_CASE("make_sign_guestbook_command writes an entry") {
-    tmp_dir dir;
-    auto cmd = make_sign_guestbook_command(dir.path.string());
-    CHECK(cmd.key == "g");
-
-    std::ostringstream out;
-    std::istringstream in{"TestUser\nTestCity\nHello world\n"};
-    text_renderer r{out, in, 40};
-
-    cmd.execute(r);
-
-    // Verify a file was created.
-    int count = 0;
-    for (const auto &entry : fs::directory_iterator(dir.path)) {
-        if (entry.path().extension() == ".md") ++count;
-    }
-    CHECK(count == 1);
-    CHECK(out.str().find("Thank you") != std::string::npos);
-}
-
 TEST_CASE("make_sign_guestbook_command rejects empty name") {
-    tmp_dir dir;
-    auto cmd = make_sign_guestbook_command(dir.path.string());
+    auto cmd = make_sign_guestbook_command("/nonexistent/bin", "/tmp");
+    CHECK(cmd.key == "g");
 
     std::ostringstream out;
     std::istringstream in{"\nTestCity\nHello\n"};
@@ -284,13 +264,26 @@ TEST_CASE("make_sign_guestbook_command rejects empty name") {
     CHECK(out.str().find("Name") != std::string::npos);
 }
 
+TEST_CASE("make_sign_guestbook_command rejects empty message") {
+    auto cmd = make_sign_guestbook_command("/nonexistent/bin", "/tmp");
+
+    std::ostringstream out;
+    std::istringstream in{"TestUser\nTestCity\n\n"};
+    text_renderer r{out, in, 40};
+
+    cmd.execute(r);
+    CHECK(out.str().find("Error") != std::string::npos);
+    CHECK(out.str().find("Message") != std::string::npos);
+}
+
 // ---------------------------------------------------------------------------
 // command: make_read_guestbook_command
 // ---------------------------------------------------------------------------
 
 TEST_CASE("make_read_guestbook_command displays entries") {
     tmp_dir dir;
-    write_entry(dir.path.string(), "Alice", "Seattle", "Hello!", test_timestamp);
+    create_test_entry(dir.path, "2024-07-01T23-25-08_alice.md",
+                      "Alice", "Seattle", "2024-07-01T23:25:08", "Hello!");
 
     auto cmd = make_read_guestbook_command(dir.path.string(), 10);
     CHECK(cmd.key == "r");
@@ -381,4 +374,35 @@ TEST_CASE("shell handles unknown commands gracefully") {
     auto output = out.str();
     CHECK(output.find("Unknown command") != std::string::npos);
     CHECK(output.find("Goodbye") != std::string::npos);
+}
+
+TEST_CASE("shell handles case-insensitive commands") {
+    std::ostringstream out;
+    std::istringstream in{"Q\n"};
+    auto rend = std::make_unique<text_renderer>(out, in, 40);
+
+    shell_config config{.banner_title = "Test"};
+
+    shell sh{std::move(rend), config};
+    sh.add_command(make_quit_command(sh.running_flag()));
+
+    sh.run();
+
+    CHECK(out.str().find("Goodbye") != std::string::npos);
+}
+
+TEST_CASE("shell exits cleanly on EOF") {
+    std::ostringstream out;
+    std::istringstream in{""};
+    auto rend = std::make_unique<text_renderer>(out, in, 40);
+
+    shell_config config{.banner_title = "Test"};
+
+    shell sh{std::move(rend), config};
+    sh.add_command(make_quit_command(sh.running_flag()));
+
+    sh.run();
+
+    // Should not spin — should exit cleanly.
+    CHECK_FALSE(sh.running_flag());
 }

@@ -4,14 +4,16 @@
 #include "guestbook_io.hh"
 
 #include <algorithm>
-#include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <sstream>
 #include <string>
 
-#include <fmt/chrono.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
 #include <fmt/format.h>
 #include <json.hpp>
 
@@ -101,65 +103,46 @@ std::vector<guestbook_entry> read_recent_entries(const std::string &logbook_dir,
 }
 
 // ---------------------------------------------------------------------------
-// Writing entries
+// Writing entries via the guestbook binary
 // ---------------------------------------------------------------------------
 
-// Generates a filename for a guestbook entry: YYYY-MM-DDTHH-MM-SS_authorpart.md
-// The author part consists of the first 8 alphabetic glyphs from the author
-// name, lowercased for filesystem safety.
-static std::string generate_entry_filename(
-    const std::string &author,
-    std::chrono::system_clock::time_point timestamp) {
+bool run_guestbook_binary(const std::string &guestbook_bin,
+                          const std::string &logbook_dir,
+                          const std::string &author,
+                          const std::string &location,
+                          const std::string &message) {
+    pid_t pid = fork();
 
-    std::string author_part;
-    for (char ch : author) {
-        if (author_part.size() >= 8) break;
-        if (std::isalpha(static_cast<unsigned char>(ch))) {
-            author_part.push_back(
-                static_cast<char>(std::tolower(static_cast<unsigned char>(ch))));
-        }
-    }
-
-    auto ts_seconds = std::chrono::floor<std::chrono::seconds>(timestamp);
-    return fmt::format("{:%Y-%m-%dT%H-%M-%S}_{}.md", ts_seconds, author_part);
-}
-
-bool write_entry(const std::string &logbook_dir,
-                 const std::string &author,
-                 const std::string &location,
-                 const std::string &message,
-                 std::chrono::system_clock::time_point timestamp) {
-    if (!fs::exists(logbook_dir) || !fs::is_directory(logbook_dir)) {
-        std::cerr << fmt::format("write_entry: logbook directory does not exist: {}\n",
-                                 logbook_dir);
+    if (pid < 0) {
+        std::cerr << fmt::format("run_guestbook_binary: fork failed\n");
         return false;
     }
 
-    auto filename = generate_entry_filename(author, timestamp);
-    fs::path entry_path = fs::path(logbook_dir) / filename;
+    if (pid == 0) {
+        // Child process: set LOGBOOK env var and exec the guestbook binary.
+        setenv("LOGBOOK", logbook_dir.c_str(), 1);
 
-    std::ofstream out(entry_path);
-    if (!out.is_open()) {
-        std::cerr << fmt::format("write_entry: failed to open file: {}\n",
-                                 entry_path.string());
-        return false;
+        execl(guestbook_bin.c_str(), guestbook_bin.c_str(),
+              "--author", author.c_str(),
+              "--location", location.c_str(),
+              "--message", message.c_str(),
+              nullptr);
+
+        // If execl returns, it failed.
+        std::cerr << fmt::format("run_guestbook_binary: exec failed: {}\n",
+                                 guestbook_bin);
+        _exit(127);
     }
 
-    auto ts_seconds = std::chrono::floor<std::chrono::seconds>(timestamp);
-    json front_matter{
-        {"author",   author},
-        {"date",     fmt::format("{:%FT%T}", ts_seconds)},
-        {"location", location},
-        {"type",     "guestbook"}
-    };
+    // Parent process: wait for the child.
+    int status = 0;
+    waitpid(pid, &status, 0);
 
-    out << front_matter << std::endl << std::endl << message << std::endl;
-
-    if (!out) {
-        std::cerr << fmt::format("write_entry: error writing to file: {}\n",
-                                 entry_path.string());
-        return false;
+    if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+        return true;
     }
 
-    return true;
+    std::cerr << fmt::format("run_guestbook_binary: child exited with status {}\n",
+                             WIFEXITED(status) ? WEXITSTATUS(status) : -1);
+    return false;
 }

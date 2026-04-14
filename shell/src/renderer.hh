@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 // A guestbook entry as read from a logbook file.
@@ -37,7 +38,11 @@ public:
         const std::vector<std::pair<std::string, std::string>> &items) = 0;
 
     // Prompt the user for a single line of input and return it.
+    // Returns an empty string on EOF / disconnect.
     virtual std::string prompt(const std::string &prompt_text) = 0;
+
+    // Returns true when the underlying input stream has reached EOF.
+    virtual bool at_eof() const = 0;
 
     // Display a list of guestbook entries.
     virtual void show_entries(const std::vector<guestbook_entry> &entries) = 0;

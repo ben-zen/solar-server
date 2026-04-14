@@ -23,6 +23,9 @@ struct shell_config {
 
     // Path to the sysop messages directory.
     std::string messages_dir = "/srv/shell/messages";
+
+    // Path to the guestbook binary (invoked via fork/exec for signing).
+    std::string guestbook_bin = "guestbook";
 };
 
 // The main BBS shell.

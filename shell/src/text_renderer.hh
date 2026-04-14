@@ -26,6 +26,7 @@ public:
     void show_menu(
         const std::vector<std::pair<std::string, std::string>> &items) override;
     std::string prompt(const std::string &prompt_text) override;
+    bool at_eof() const override;
     void show_entries(const std::vector<guestbook_entry> &entries) override;
     void show_text(const std::string &text) override;
     void show_error(const std::string &error) override;

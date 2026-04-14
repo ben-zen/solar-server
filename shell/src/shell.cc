@@ -4,6 +4,15 @@
 #include "shell.hh"
 
 #include <algorithm>
+#include <cctype>
+
+// Case-insensitive string comparison.
+static std::string to_lower(const std::string &s) {
+    std::string result = s;
+    std::transform(result.begin(), result.end(), result.begin(),
+                   [](unsigned char c) { return std::tolower(c); });
+    return result;
+}
 
 shell::shell(std::unique_ptr<renderer> rend, shell_config config)
     : renderer_{std::move(rend)}, config_{std::move(config)} {}
@@ -28,18 +37,17 @@ void shell::run() {
         auto choice = renderer_->prompt(">");
 
         if (choice.empty()) {
+            if (renderer_->at_eof()) {
+                running_ = false;
+                break;
+            }
             continue;
         }
 
-        // Find the matching command (case-insensitive single-key match).
+        auto lower_choice = to_lower(choice);
         auto it = std::find_if(commands_.begin(), commands_.end(),
-            [&choice](const command &cmd) {
-                // Compare only the first character if the key is a single char.
-                if (cmd.key.size() == 1 && choice.size() >= 1) {
-                    return std::tolower(static_cast<unsigned char>(cmd.key[0]))
-                        == std::tolower(static_cast<unsigned char>(choice[0]));
-                }
-                return cmd.key == choice;
+            [&lower_choice](const command &cmd) {
+                return to_lower(cmd.key) == lower_choice;
             });
 
         if (it != commands_.end()) {

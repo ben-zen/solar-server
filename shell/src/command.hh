@@ -36,8 +36,9 @@ struct command {
 // ---------------------------------------------------------------------------
 
 // Sign the guestbook: prompts for author, location, and message, then
-// writes a Hugo-compatible markdown entry into |logbook_dir|.
-command make_sign_guestbook_command(const std::string &logbook_dir);
+// invokes the guestbook binary via fork/exec to write the entry.
+command make_sign_guestbook_command(const std::string &guestbook_bin,
+                                   const std::string &logbook_dir);
 
 // Read recent guestbook entries from |logbook_dir|.
 command make_read_guestbook_command(const std::string &logbook_dir,

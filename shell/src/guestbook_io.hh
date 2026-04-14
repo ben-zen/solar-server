@@ -5,7 +5,6 @@
 
 #include "renderer.hh"
 
-#include <chrono>
 #include <string>
 #include <vector>
 
@@ -18,13 +17,13 @@
 std::vector<guestbook_entry> read_recent_entries(const std::string &logbook_dir,
                                                  int max_entries);
 
-// Write a new guestbook entry to |logbook_dir|.
+// Sign the guestbook by invoking the guestbook binary via fork/exec.
 //
-// The entry is written in the same Hugo-compatible format as the guestbook
-// CGI binary (JSON front matter with author, date, location, type keys,
-// followed by the message body).  Returns true on success.
-bool write_entry(const std::string &logbook_dir,
-                 const std::string &author,
-                 const std::string &location,
-                 const std::string &message,
-                 std::chrono::system_clock::time_point timestamp);
+// |guestbook_bin| is the path to the guestbook executable.
+// |logbook_dir| is passed to the child process via the LOGBOOK environment
+// variable.  Returns true if the child process exits successfully.
+bool run_guestbook_binary(const std::string &guestbook_bin,
+                          const std::string &logbook_dir,
+                          const std::string &author,
+                          const std::string &location,
+                          const std::string &message);

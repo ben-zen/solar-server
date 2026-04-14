@@ -19,6 +19,36 @@ namespace ansi {
     constexpr auto clear  = "\033[2J\033[H";
 }
 
+// Strip C0 control characters (0x00–0x1F) except tab and newline to
+// prevent ANSI escape injection from untrusted input.  Also removes
+// complete ANSI escape sequences (ESC [ … final-byte).
+static std::string sanitize_terminal_output(const std::string &input) {
+    std::string result;
+    result.reserve(input.size());
+    for (size_t i = 0; i < input.size(); ++i) {
+        auto ch = static_cast<unsigned char>(input[i]);
+
+        // Detect the start of an ANSI escape sequence: ESC [
+        if (ch == 0x1B && i + 1 < input.size() && input[i + 1] == '[') {
+            // Skip past the CSI parameters and the final byte (0x40–0x7E).
+            i += 2;
+            while (i < input.size() &&
+                   static_cast<unsigned char>(input[i]) >= 0x20 &&
+                   static_cast<unsigned char>(input[i]) <= 0x3F) {
+                ++i;  // Skip parameter bytes.
+            }
+            // Skip the final byte if present.
+            continue;
+        }
+
+        if (ch >= 0x20 || ch == '\t' || ch == '\n') {
+            result.push_back(static_cast<char>(ch));
+        }
+        // Drop other control characters (including bare ESC).
+    }
+    return result;
+}
+
 text_renderer::text_renderer(std::ostream &out, std::istream &in, int width)
     : out_{out}, in_{in}, width_{width} {}
 
@@ -72,6 +102,10 @@ std::string text_renderer::prompt(const std::string &prompt_text) {
     return line;
 }
 
+bool text_renderer::at_eof() const {
+    return in_.eof() || in_.fail();
+}
+
 void text_renderer::show_entries(const std::vector<guestbook_entry> &entries) {
     if (entries.empty()) {
         out_ << fmt::format("  {}(no entries yet){}\n", ansi::dim, ansi::reset);
@@ -79,12 +113,18 @@ void text_renderer::show_entries(const std::vector<guestbook_entry> &entries) {
     }
 
     for (const auto &entry : entries) {
-        std::string header = fmt::format("{} from {}", entry.date, entry.author);
-        if (!entry.location.empty()) {
-            header += fmt::format(" ({})", entry.location);
+        auto safe_author   = sanitize_terminal_output(entry.author);
+        auto safe_location = sanitize_terminal_output(entry.location);
+        auto safe_date     = sanitize_terminal_output(entry.date);
+        auto safe_message  = sanitize_terminal_output(entry.message);
+
+        std::string header = fmt::format("{} from {}", safe_date, safe_author);
+        if (!safe_location.empty()) {
+            header += fmt::format(" ({})", safe_location);
         }
         out_ << fmt::format("  {}{}{}\n", ansi::dim, header, ansi::reset);
-        out_ << fmt::format("  {}\n\n", entry.message);
+        out_ << fmt::format("  {}\n", safe_message);
+        out_ << fmt::format("  {}---{}\n", ansi::dim, ansi::reset);
     }
 }
 

@@ -5,9 +5,9 @@
 #include "guestbook_io.hh"
 
 #include <algorithm>
-#include <chrono>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -33,11 +33,12 @@ static std::string truncate(const std::string &value, size_t max_len) {
 // Sign the guestbook
 // ---------------------------------------------------------------------------
 
-command make_sign_guestbook_command(const std::string &logbook_dir) {
+command make_sign_guestbook_command(const std::string &guestbook_bin,
+                                   const std::string &logbook_dir) {
     return command{
         .key   = "g",
         .label = "Sign the guestbook",
-        .execute = [logbook_dir](renderer &r) {
+        .execute = [guestbook_bin, logbook_dir](renderer &r) {
             r.show_separator();
             r.show_text("  Sign the Guestbook");
             r.show_separator();
@@ -59,8 +60,8 @@ command make_sign_guestbook_command(const std::string &logbook_dir) {
             }
             message = truncate(message, max_message_length);
 
-            auto timestamp = std::chrono::system_clock::now();
-            if (write_entry(logbook_dir, author, location, message, timestamp)) {
+            if (run_guestbook_binary(guestbook_bin, logbook_dir,
+                                     author, location, message)) {
                 r.show_blank_line();
                 r.show_text("  Thank you for signing the guestbook!");
             } else {

@@ -5,7 +5,7 @@ just := just_executable()
 mod logger
 mod guestbook
 mod website
-mod shell
+mod bbs 'shell'
 
 # Default recipe: build all components
 default: build
@@ -15,26 +15,26 @@ build:
     {{ just }} logger build
     {{ just }} guestbook build
     {{ just }} website build
-    {{ just }} shell build
+    {{ just }} bbs build
 
 # Run all tests
 test:
     {{ just }} guestbook test
-    {{ just }} shell test
+    {{ just }} bbs test
 
 # Remove all build artifacts
 clean:
     {{ just }} logger clean
     {{ just }} guestbook clean
     {{ just }} website clean
-    {{ just }} shell clean
+    {{ just }} bbs clean
 
 # Deploy everything to the local machine (requires root)
 deploy: deploy-lighttpd
     {{ just }} logger deploy
     {{ just }} guestbook deploy
     {{ just }} website deploy
-    {{ just }} shell deploy
+    {{ just }} bbs deploy
 
 # Install and configure lighttpd for the solar-server project (requires root)
 deploy-lighttpd:

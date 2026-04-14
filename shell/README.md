@@ -6,17 +6,19 @@ login shell over telnet, SSH, or a dial-up modem connection.
 ## Features
 
 - **Welcome banner** with programmable title and info lines
-- **Sign the guestbook** — write an entry (same format as the web guestbook)
+- **Sign the guestbook** — invokes the guestbook binary via fork/exec
+  (same entry format as the web guestbook)
 - **Read recent guestbook entries** — view the latest visitor messages
 - **Read sysop messages** — view messages from the server administrator
 - **Extensible** — new commands can be added by creating a `command` struct
 - **Separated presentation** — swap the `text_renderer` for a different
   `renderer` implementation to change the UI without touching command logic
+- **Configuration** — supports both CLI arguments and a `~/.solarshrc` dotfile
 
 ## Building
 
 ```sh
-just shell build
+just bbs build
 ```
 
 Or from the `shell/` directory:
@@ -29,7 +31,7 @@ just build
 ### Running tests
 
 ```sh
-just shell test
+just bbs test
 ```
 
 ### Manual build
@@ -52,6 +54,7 @@ meson compile -C build
 ./build/solar-shell \
     --logbook /srv/guestbook/logbook \
     --messages /srv/shell/messages \
+    --guestbook-bin /usr/lib/cgi-bin/guestbook \
     --title "Solar Server BBS" \
     --info "Powered by sunlight" \
     --info "ToorCamp 2025"
@@ -59,14 +62,34 @@ meson compile -C build
 
 ### Command-line options
 
-| Flag            | Description                                      | Default                  |
-|-----------------|--------------------------------------------------|--------------------------|
-| `--logbook`     | Path to the guestbook logbook directory           | `/srv/guestbook/logbook` |
-| `--messages`    | Path to the sysop messages directory              | `/srv/shell/messages`    |
-| `--title`       | Banner title                                      | `Solar Server BBS`       |
-| `--info`        | Extra info line (repeatable)                      | *(none)*                 |
-| `--width`       | Terminal width for formatting                     | `72`                     |
-| `--max-entries` | Max recent guestbook entries to display           | `10`                     |
+| Flag              | Description                                      | Default                  |
+|-------------------|--------------------------------------------------|--------------------------|
+| `--config`        | Path to configuration file                        | `~/.solarshrc`           |
+| `--logbook`       | Path to the guestbook logbook directory           | `/srv/guestbook/logbook` |
+| `--messages`      | Path to the sysop messages directory              | `/srv/shell/messages`    |
+| `--guestbook-bin` | Path to the guestbook binary                      | `guestbook`              |
+| `--title`         | Banner title                                      | `Solar Server BBS`       |
+| `--info`          | Extra info line (repeatable)                      | *(none)*                 |
+| `--width`         | Terminal width for formatting                     | `72`                     |
+| `--max-entries`   | Max recent guestbook entries to display           | `10`                     |
+
+CLI arguments always override values from the configuration file.
+
+### Configuration file (~/.solarshrc)
+
+The shell reads `~/.solarshrc` on startup (or a path given by `--config`).
+The format is simple `key = value`, one per line.  Lines starting with `#`
+are comments.  The `info` key may appear multiple times.
+
+```
+# Solar shell configuration
+title = Solar Server BBS
+info = Powered by sunlight
+info = ToorCamp 2025
+logbook = /srv/guestbook/logbook
+messages = /srv/shell/messages
+guestbook-bin = /usr/lib/cgi-bin/guestbook
+```
 
 ### As a login shell
 
@@ -79,7 +102,7 @@ sudo usermod -s /usr/local/bin/solar-shell bbs
 ## Deployment
 
 ```sh
-sudo just shell deploy
+sudo just bbs deploy
 ```
 
 This installs the binary to `/usr/local/bin/solar-shell` and creates the
@@ -99,10 +122,12 @@ business logic:
 
 - **`renderer`** (abstract) — defines how output is displayed to the user.
   The `text_renderer` implementation uses plain text with ANSI escape codes,
-  suitable for any terminal.
+  suitable for any terminal.  Untrusted input (guestbook entries) is
+  sanitized to strip ANSI escape sequences and control characters.
 - **`command`** — encapsulates a single user action with a key, label, and
   execute function.  New features are added by creating new commands.
 - **`shell`** — orchestrates the command loop, connecting the renderer to the
-  registered commands.
-- **`guestbook_io`** — reads and writes guestbook entries in the same
-  Hugo-compatible format used by the web guestbook.
+  registered commands.  Handles EOF/disconnect gracefully.
+- **`guestbook_io`** — reads guestbook entries from the logbook directory and
+  invokes the guestbook binary via fork/exec for writing new entries.  This
+  avoids duplicating the entry format logic from the guestbook component.
