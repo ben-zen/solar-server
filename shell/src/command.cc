@@ -106,8 +106,11 @@ read_messages(const std::string &messages_dir) {
     }
 
     std::vector<fs::path> paths;
-    for (const auto &entry : fs::directory_iterator(messages_dir)) {
-        if (entry.is_regular_file()) {
+    std::error_code ec;
+    for (const auto &entry : fs::directory_iterator(messages_dir, ec)) {
+        if (ec) break;
+        std::error_code entry_ec;
+        if (entry.is_regular_file(entry_ec) && !entry_ec) {
             auto ext = entry.path().extension().string();
             if (ext == ".txt" || ext == ".md") {
                 paths.push_back(entry.path());
@@ -116,7 +119,7 @@ read_messages(const std::string &messages_dir) {
     }
 
     // Sort by filename (newest first, assuming timestamp prefixes).
-    std::sort(paths.begin(), paths.end(), std::greater<>());
+    std::sort(paths.begin(), paths.end(), std::greater<fs::path>());
 
     for (const auto &p : paths) {
         std::ifstream file(p);

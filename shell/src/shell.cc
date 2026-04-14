@@ -41,6 +41,7 @@ void shell::run() {
                 running_ = false;
                 break;
             }
+            renderer_->show_error("Please enter a letter to choose a command.");
             continue;
         }
 

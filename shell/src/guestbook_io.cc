@@ -4,6 +4,7 @@
 #include "guestbook_io.hh"
 
 #include <algorithm>
+#include <cerrno>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -79,14 +80,18 @@ std::vector<guestbook_entry> read_recent_entries(const std::string &logbook_dir,
 
     // Collect all .md files in the logbook directory.
     std::vector<fs::path> paths;
-    for (const auto &dir_entry : fs::directory_iterator(logbook_dir)) {
-        if (dir_entry.is_regular_file() && dir_entry.path().extension() == ".md") {
+    std::error_code ec;
+    for (const auto &dir_entry : fs::directory_iterator(logbook_dir, ec)) {
+        if (ec) break;
+        std::error_code entry_ec;
+        if (dir_entry.is_regular_file(entry_ec) && !entry_ec &&
+            dir_entry.path().extension() == ".md") {
             paths.push_back(dir_entry.path());
         }
     }
 
     // Sort descending by filename (filenames are timestamped).
-    std::sort(paths.begin(), paths.end(), std::greater<>());
+    std::sort(paths.begin(), paths.end(), std::greater<fs::path>());
 
     int count = 0;
     for (const auto &p : paths) {
@@ -121,21 +126,29 @@ bool run_guestbook_binary(const std::string &guestbook_bin,
         // Child process: set LOGBOOK env var and exec the guestbook binary.
         setenv("LOGBOOK", logbook_dir.c_str(), 1);
 
-        execl(guestbook_bin.c_str(), guestbook_bin.c_str(),
-              "--author", author.c_str(),
-              "--location", location.c_str(),
-              "--message", message.c_str(),
-              nullptr);
+        execlp(guestbook_bin.c_str(), guestbook_bin.c_str(),
+               "--author", author.c_str(),
+               "--location", location.c_str(),
+               "--message", message.c_str(),
+               nullptr);
 
-        // If execl returns, it failed.
+        // If execlp returns, it failed.
         std::cerr << fmt::format("run_guestbook_binary: exec failed: {}\n",
                                  guestbook_bin);
         _exit(127);
     }
 
-    // Parent process: wait for the child.
+    // Parent process: wait for the child.  Retry on EINTR.
     int status = 0;
-    waitpid(pid, &status, 0);
+    pid_t ret;
+    do {
+        ret = waitpid(pid, &status, 0);
+    } while (ret == -1 && errno == EINTR);
+
+    if (ret == -1) {
+        std::cerr << fmt::format("run_guestbook_binary: waitpid failed\n");
+        return false;
+    }
 
     if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
         return true;

@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: MIT
 
 #include "command.hh"
+#include "config.hh"
 #include "shell.hh"
 #include "text_renderer.hh"
 
 #include <cstdlib>
 #include <filesystem>
-#include <fstream>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -16,64 +16,6 @@
 #include <argparse.hpp>
 
 namespace fs = std::filesystem;
-
-// ---------------------------------------------------------------------------
-// .solarshrc configuration file parser
-// ---------------------------------------------------------------------------
-
-// Parse a simple key = value config file.  Lines starting with '#' are
-// comments.  Keys match CLI argument names (without leading dashes).
-// The 'info' key may appear multiple times (values are appended).
-static shell_config parse_config_file(const std::string &path) {
-    shell_config config{};
-
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        return config;
-    }
-
-    std::string line;
-    while (std::getline(file, line)) {
-        // Skip empty lines and comments.
-        if (line.empty() || line[0] == '#') continue;
-
-        auto eq = line.find('=');
-        if (eq == std::string::npos) continue;
-
-        // Extract and trim key/value.
-        auto key = line.substr(0, eq);
-        auto value = line.substr(eq + 1);
-
-        // Trim whitespace.
-        auto trim = [](std::string &s) {
-            auto start = s.find_first_not_of(" \t");
-            auto end   = s.find_last_not_of(" \t");
-            s = (start == std::string::npos) ? "" : s.substr(start, end - start + 1);
-        };
-        trim(key);
-        trim(value);
-
-        if (key == "title")         config.banner_title = value;
-        else if (key == "info")     config.banner_info.push_back(value);
-        else if (key == "logbook")  config.logbook_dir = value;
-        else if (key == "messages") config.messages_dir = value;
-        else if (key == "guestbook-bin") config.guestbook_bin = value;
-    }
-
-    return config;
-}
-
-// Resolve the config file path: use --config if given, otherwise ~/.solarshrc.
-static std::string resolve_config_path() {
-    const char *home = std::getenv("HOME");
-    if (home != nullptr) {
-        auto path = fs::path(home) / ".solarshrc";
-        if (fs::exists(path)) {
-            return path.string();
-        }
-    }
-    return "";
-}
 
 int main(int argc, char **argv) {
     argparse::ArgumentParser arg_parser{"solar-shell", "0.1.0",

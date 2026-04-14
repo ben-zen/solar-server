@@ -5,6 +5,7 @@
 #include <doctest.h>
 
 #include "command.hh"
+#include "config.hh"
 #include "guestbook_io.hh"
 #include "renderer.hh"
 #include "shell.hh"
@@ -405,4 +406,112 @@ TEST_CASE("shell exits cleanly on EOF") {
 
     // Should not spin — should exit cleanly.
     CHECK_FALSE(sh.running_flag());
+}
+
+TEST_CASE("shell prompts user to enter a letter on empty input") {
+    std::ostringstream out;
+    // Empty line followed by quit.
+    std::istringstream in{"\nq\n"};
+    auto rend = std::make_unique<text_renderer>(out, in, 40);
+
+    shell_config config{.banner_title = "Test"};
+
+    shell sh{std::move(rend), config};
+    sh.add_command(make_quit_command(sh.running_flag()));
+
+    sh.run();
+
+    auto output = out.str();
+    CHECK(output.find("enter a letter") != std::string::npos);
+    CHECK(output.find("Goodbye") != std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// config: parse_config_stream
+// ---------------------------------------------------------------------------
+
+TEST_CASE("parse_config_stream parses basic key=value pairs") {
+    std::istringstream input{
+        "title = My BBS\n"
+        "logbook = /var/log/guestbook\n"
+        "messages = /var/sysop/messages\n"
+        "guestbook-bin = /usr/local/bin/guestbook\n"
+    };
+
+    auto config = parse_config_stream(input);
+    CHECK(config.banner_title == "My BBS");
+    CHECK(config.logbook_dir == "/var/log/guestbook");
+    CHECK(config.messages_dir == "/var/sysop/messages");
+    CHECK(config.guestbook_bin == "/usr/local/bin/guestbook");
+}
+
+TEST_CASE("parse_config_stream handles repeated info keys") {
+    std::istringstream input{
+        "info = Line one\n"
+        "info = Line two\n"
+        "info = Line three\n"
+    };
+
+    auto config = parse_config_stream(input);
+    REQUIRE(config.banner_info.size() == 3);
+    CHECK(config.banner_info[0] == "Line one");
+    CHECK(config.banner_info[1] == "Line two");
+    CHECK(config.banner_info[2] == "Line three");
+}
+
+TEST_CASE("parse_config_stream ignores comments and blank lines") {
+    std::istringstream input{
+        "# This is a comment\n"
+        "\n"
+        "  # Indented comment\n"
+        "title = Visible\n"
+    };
+
+    auto config = parse_config_stream(input);
+    CHECK(config.banner_title == "Visible");
+}
+
+TEST_CASE("parse_config_stream ignores unknown keys") {
+    std::istringstream input{
+        "title = Known\n"
+        "unknown_key = some value\n"
+        "also-unknown = other value\n"
+    };
+
+    auto config = parse_config_stream(input);
+    CHECK(config.banner_title == "Known");
+    // Unknown keys should not affect defaults.
+    CHECK(config.logbook_dir == "/srv/guestbook/logbook");
+}
+
+TEST_CASE("parse_config_stream trims whitespace around keys and values") {
+    std::istringstream input{
+        "  title  =  Trimmed Title  \n"
+        "  logbook  =  /some/path  \n"
+    };
+
+    auto config = parse_config_stream(input);
+    CHECK(config.banner_title == "Trimmed Title");
+    CHECK(config.logbook_dir == "/some/path");
+}
+
+TEST_CASE("resolve_config_path_from_home returns empty for null home") {
+    CHECK(resolve_config_path_from_home(nullptr).empty());
+}
+
+TEST_CASE("resolve_config_path_from_home returns empty for nonexistent dotfile") {
+    tmp_dir dir;
+    // No .solarshrc exists in the temp directory.
+    CHECK(resolve_config_path_from_home(dir.path.string().c_str()).empty());
+}
+
+TEST_CASE("resolve_config_path_from_home finds existing dotfile") {
+    tmp_dir dir;
+    std::ofstream dotfile(dir.path / ".solarshrc");
+    dotfile << "title = Found\n";
+    dotfile.close();
+
+    auto path = resolve_config_path_from_home(dir.path.string().c_str());
+    CHECK_FALSE(path.empty());
+    CHECK(path.find(".solarshrc") != std::string::npos);
 }

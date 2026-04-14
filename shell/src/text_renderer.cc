@@ -19,32 +19,80 @@ namespace ansi {
     constexpr auto clear  = "\033[2J\033[H";
 }
 
-// Strip C0 control characters (0x00–0x1F) except tab and newline to
-// prevent ANSI escape injection from untrusted input.  Also removes
-// complete ANSI escape sequences (ESC [ … final-byte).
+// Strip control characters and terminal escape sequences from untrusted
+// input to prevent terminal injection.  Handles CSI (ESC [), OSC (ESC ]),
+// DCS (ESC P), PM (ESC ^), APC (ESC _), SOS (ESC X), SS3 (ESC O), and
+// other two-byte ESC-prefixed functions.  Preserves tab and newline.
 static std::string sanitize_terminal_output(const std::string &input) {
     std::string result;
     result.reserve(input.size());
+
     for (size_t i = 0; i < input.size(); ++i) {
         auto ch = static_cast<unsigned char>(input[i]);
 
-        // Detect the start of an ANSI escape sequence: ESC [
-        if (ch == 0x1B && i + 1 < input.size() && input[i + 1] == '[') {
-            // Skip past the CSI parameters and the final byte (0x40–0x7E).
-            i += 2;
-            while (i < input.size() &&
-                   static_cast<unsigned char>(input[i]) >= 0x20 &&
-                   static_cast<unsigned char>(input[i]) <= 0x3F) {
-                ++i;  // Skip parameter bytes.
+        if (ch == 0x1B) {
+            if (i + 1 >= input.size()) {
+                continue;  // Drop a trailing bare ESC.
             }
-            // Skip the final byte if present.
+
+            auto next = static_cast<unsigned char>(input[i + 1]);
+
+            if (next == '[') {
+                // CSI: ESC [ parameters/intermediates final-byte
+                i += 2;
+                while (i < input.size()) {
+                    auto seq = static_cast<unsigned char>(input[i]);
+                    if (seq >= 0x40 && seq <= 0x7E) {
+                        break;  // Consume the final byte as part of the skip.
+                    }
+                    ++i;
+                }
+                continue;
+            }
+
+            if (next == ']') {
+                // OSC: ESC ] ... BEL or ST (ESC \)
+                i += 2;
+                while (i < input.size()) {
+                    auto seq = static_cast<unsigned char>(input[i]);
+                    if (seq == 0x07) {
+                        break;  // BEL terminator.
+                    }
+                    if (seq == 0x1B && i + 1 < input.size() &&
+                        static_cast<unsigned char>(input[i + 1]) == '\\') {
+                        ++i;  // Consume the '\' from ST.
+                        break;
+                    }
+                    ++i;
+                }
+                continue;
+            }
+
+            if (next == 'P' || next == '^' || next == '_' || next == 'X') {
+                // DCS / PM / APC / SOS: ESC <type> ... ST (ESC \)
+                i += 2;
+                while (i < input.size()) {
+                    auto seq = static_cast<unsigned char>(input[i]);
+                    if (seq == 0x1B && i + 1 < input.size() &&
+                        static_cast<unsigned char>(input[i + 1]) == '\\') {
+                        ++i;  // Consume the '\' from ST.
+                        break;
+                    }
+                    ++i;
+                }
+                continue;
+            }
+
+            // Consume other ESC-prefixed terminal controls conservatively,
+            // including SS3 (ESC O) and other two-byte escape functions.
+            ++i;
             continue;
         }
 
         if (ch >= 0x20 || ch == '\t' || ch == '\n') {
             result.push_back(static_cast<char>(ch));
         }
-        // Drop other control characters (including bare ESC).
+        // Drop other control characters.
     }
     return result;
 }
