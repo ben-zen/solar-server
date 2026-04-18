@@ -128,7 +128,13 @@ static std::vector<std::pair<std::string, std::string>>
 read_messages(const std::string &messages_dir) {
     std::vector<std::pair<std::string, std::string>> messages;
 
-    if (!fs::exists(messages_dir) || !fs::is_directory(messages_dir)) {
+    std::error_code exists_ec;
+    if (!fs::exists(messages_dir, exists_ec) || exists_ec) {
+        return messages;
+    }
+
+    std::error_code is_dir_ec;
+    if (!fs::is_directory(messages_dir, is_dir_ec) || is_dir_ec) {
         return messages;
     }
 

@@ -62,16 +62,17 @@ meson compile -C build
 
 ### Command-line options
 
-| Flag              | Description                                      | Default                  |
-|-------------------|--------------------------------------------------|--------------------------|
-| `--config`        | Path to configuration file                        | `~/.solarshrc`           |
-| `--logbook`       | Path to the guestbook logbook directory           | `/srv/guestbook/logbook` |
-| `--messages`      | Path to the sysop messages directory              | `/srv/shell/messages`    |
-| `--guestbook-bin` | Path to the guestbook binary                      | `guestbook`              |
-| `--title`         | Banner title                                      | `Solar Server BBS`       |
-| `--info`          | Extra info line (repeatable)                      | *(none)*                 |
-| `--width`         | Terminal width for formatting                     | `72`                     |
-| `--max-entries`   | Max recent guestbook entries to display           | `10`                     |
+| Flag              | Description                                      | Default                          |
+|-------------------|--------------------------------------------------|----------------------------------|
+| `--config`        | Path to configuration file                        | `~/.solarshrc`                   |
+| `--logbook`       | Path to the guestbook logbook directory           | `/srv/guestbook/logbook`         |
+| `--messages`      | Path to the sysop messages directory              | `/srv/shell/messages`            |
+| `--guestbook-bin` | Path to the guestbook binary                      | `guestbook`                      |
+| `--title`         | Banner title                                      | `Solar Server BBS`               |
+| `--info`          | Extra info line (repeatable)                      | *(none)*                         |
+| `--location`      | Default location for the guestbook sign prompt    | *(none)*                         |
+| `--width`         | Terminal width for formatting                     | `0` (auto-detect; fallback `72`) |
+| `--max-entries`   | Max recent guestbook entries to display           | `10`                             |
 
 CLI arguments always override values from the configuration file.
 
@@ -89,6 +90,9 @@ info = ToorCamp 2025
 logbook = /srv/guestbook/logbook
 messages = /srv/shell/messages
 guestbook-bin = /usr/lib/cgi-bin/guestbook
+location = ToorCamp
+max-entries = 20
+width = 80
 ```
 
 ### As a login shell

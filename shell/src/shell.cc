@@ -43,7 +43,12 @@ void shell::run() {
             break;
         }
 
-        auto &choice = std::get<std::string>(result);
+        auto choice = std::get<std::string>(result);
+
+        // Trim leading/trailing whitespace so " q " still matches "q".
+        auto start = choice.find_first_not_of(" \t");
+        auto end   = choice.find_last_not_of(" \t");
+        choice = (start == std::string::npos) ? "" : choice.substr(start, end - start + 1);
 
         if (choice.empty()) {
             renderer_->show_error("Please enter a letter to choose a command.");

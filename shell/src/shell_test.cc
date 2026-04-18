@@ -582,3 +582,85 @@ TEST_CASE("make_sign_guestbook_command aborts on EOF during name prompt") {
     // Should not crash or show "Thank you" — just abort silently.
     CHECK(out.str().find("Thank you") == std::string::npos);
 }
+
+// ---------------------------------------------------------------------------
+// config: negative value clamping
+// ---------------------------------------------------------------------------
+
+TEST_CASE("parse_config_stream ignores negative max-entries") {
+    std::istringstream input{"max-entries = -5\n"};
+    auto config = parse_config_stream(input);
+    // Negative values should be rejected; keep default.
+    CHECK(config.max_entries == 10);
+}
+
+TEST_CASE("parse_config_stream ignores negative width") {
+    std::istringstream input{"width = -10\n"};
+    auto config = parse_config_stream(input);
+    // Negative values should be rejected; keep default.
+    CHECK(config.width == 0);
+}
+
+// ---------------------------------------------------------------------------
+// shell: whitespace-trimmed input matching
+// ---------------------------------------------------------------------------
+
+TEST_CASE("shell trims whitespace around user input") {
+    std::ostringstream out;
+    std::istringstream in{" q \n"};
+    auto rend = std::make_unique<text_renderer>(out, in, 40);
+
+    shell_config config{.banner_title = "Test"};
+
+    shell sh{std::move(rend), config};
+    sh.add_command(make_quit_command(sh.running_flag()));
+
+    sh.run();
+
+    CHECK(out.str().find("Goodbye") != std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// text_renderer: show_text sanitizes terminal injection
+// ---------------------------------------------------------------------------
+
+TEST_CASE("text_renderer::show_text sanitizes escape sequences") {
+    std::ostringstream out;
+    std::istringstream in;
+    text_renderer r{out, in, 40};
+
+    r.show_text("Hello \033[31mInjection\033[0m World");
+    auto output = out.str();
+    CHECK(output.find("Hello Injection World") != std::string::npos);
+    // The ESC character should be stripped.
+    CHECK(output.find('\033') == std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// text_renderer: set_width ignores invalid values
+// ---------------------------------------------------------------------------
+
+TEST_CASE("text_renderer::set_width ignores zero and negative values") {
+    std::ostringstream out;
+    std::istringstream in;
+    text_renderer r{out, in, 40};
+
+    r.set_width(0);
+    r.show_separator();
+    auto output1 = out.str();
+    // Width should remain 40 — separator should be 40 dashes.
+    CHECK(output1.find(std::string(40, '-')) != std::string::npos);
+
+    out.str("");
+    r.set_width(-5);
+    r.show_separator();
+    auto output2 = out.str();
+    CHECK(output2.find(std::string(40, '-')) != std::string::npos);
+
+    // Valid update should work.
+    out.str("");
+    r.set_width(20);
+    r.show_separator();
+    auto output3 = out.str();
+    CHECK(output3.find(std::string(20, '-')) != std::string::npos);
+}

@@ -17,7 +17,7 @@ build:
     {{ just }} website build
     {{ just }} bbs build
 
-# Run all tests
+# Run guestbook and shell tests
 test:
     {{ just }} guestbook test
     {{ just }} bbs test

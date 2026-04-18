@@ -33,7 +33,9 @@ public:
     void show_blank_line() override;
 
     // Update the terminal width (e.g., after a SIGWINCH).
-    void set_width(int w) { width_ = w; }
+    // Values below 1 are ignored to prevent undefined behavior from
+    // signed→unsigned conversion when constructing separator strings.
+    void set_width(int w) { if (w >= 1) width_ = w; }
 
 private:
     std::ostream &out_;

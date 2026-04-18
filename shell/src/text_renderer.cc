@@ -176,7 +176,7 @@ void text_renderer::show_entries(const std::vector<guestbook_entry> &entries) {
 }
 
 void text_renderer::show_text(const std::string &text) {
-    out_ << text << '\n';
+    out_ << sanitize_terminal_output(text) << '\n';
 }
 
 void text_renderer::show_error(const std::string &error) {

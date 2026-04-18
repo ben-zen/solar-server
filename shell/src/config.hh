@@ -5,6 +5,7 @@
 
 #include "shell.hh"
 
+#include <cstdlib>
 #include <filesystem>
 #include <fstream>
 #include <istream>
@@ -65,11 +66,17 @@ inline shell_config parse_config_stream(std::istream &input) {
         else if (key == "guestbook-bin") config.guestbook_bin = value;
         else if (key == "location")      config.location = value;
         else if (key == "max-entries") {
-            try { config.max_entries = std::stoi(value); }
+            try {
+                auto parsed = std::stoi(value);
+                if (parsed >= 1) config.max_entries = parsed;
+            }
             catch (...) { /* keep default */ }
         }
         else if (key == "width") {
-            try { config.width = std::stoi(value); }
+            try {
+                auto parsed = std::stoi(value);
+                if (parsed >= 0) config.width = parsed;
+            }
             catch (...) { /* keep default */ }
         }
     }

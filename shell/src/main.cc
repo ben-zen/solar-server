@@ -105,11 +105,13 @@ static void apply_cli_overrides(shell_config &config,
     if (!cli_location.empty()) config.location = cli_location;
 
     if (parser.is_used("--max-entries")) {
-        config.max_entries = parser.get<int>("--max-entries");
+        auto val = parser.get<int>("--max-entries");
+        if (val >= 1) config.max_entries = val;
     }
 
     if (parser.is_used("--width")) {
-        config.width = parser.get<int>("--width");
+        auto val = parser.get<int>("--width");
+        if (val >= 0) config.width = val;
     }
 }
 
