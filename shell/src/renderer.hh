@@ -6,6 +6,7 @@
 #include <memory>
 #include <string>
 #include <utility>
+#include <variant>
 #include <vector>
 
 // A guestbook entry as read from a logbook file.
@@ -15,6 +16,14 @@ struct guestbook_entry {
     std::string date;
     std::string message;
 };
+
+// Response states returned by renderer::prompt().
+struct prompt_eof {};        // Clean end-of-input (e.g., Ctrl-D).
+struct prompt_disconnect {}; // I/O error or broken connection.
+
+// The result of a prompt operation: either the user's input string or a
+// terminal state indicating that the session has ended.
+using prompt_result = std::variant<std::string, prompt_eof, prompt_disconnect>;
 
 // Abstract renderer interface.
 //
@@ -37,12 +46,10 @@ public:
     virtual void show_menu(
         const std::vector<std::pair<std::string, std::string>> &items) = 0;
 
-    // Prompt the user for a single line of input and return it.
-    // Returns an empty string on EOF / disconnect.
-    virtual std::string prompt(const std::string &prompt_text) = 0;
-
-    // Returns true when the underlying input stream has reached EOF.
-    virtual bool at_eof() const = 0;
+    // Prompt the user for a single line of input.  Returns the input string
+    // on success, prompt_eof on a clean end-of-input, or prompt_disconnect
+    // if the underlying stream encountered an I/O error.
+    virtual prompt_result prompt(const std::string &prompt_text) = 0;
 
     // Display a list of guestbook entries.
     virtual void show_entries(const std::vector<guestbook_entry> &entries) = 0;

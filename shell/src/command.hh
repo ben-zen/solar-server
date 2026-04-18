@@ -37,8 +37,10 @@ struct command {
 
 // Sign the guestbook: prompts for author, location, and message, then
 // invokes the guestbook binary via fork/exec to write the entry.
+// |default_location| pre-fills the location prompt when non-empty.
 command make_sign_guestbook_command(const std::string &guestbook_bin,
-                                   const std::string &logbook_dir);
+                                   const std::string &logbook_dir,
+                                   const std::string &default_location = "");
 
 // Read recent guestbook entries from |logbook_dir|.
 command make_read_guestbook_command(const std::string &logbook_dir,

@@ -25,13 +25,15 @@ public:
                      const std::vector<std::string> &info_lines) override;
     void show_menu(
         const std::vector<std::pair<std::string, std::string>> &items) override;
-    std::string prompt(const std::string &prompt_text) override;
-    bool at_eof() const override;
+    prompt_result prompt(const std::string &prompt_text) override;
     void show_entries(const std::vector<guestbook_entry> &entries) override;
     void show_text(const std::string &text) override;
     void show_error(const std::string &error) override;
     void show_separator() override;
     void show_blank_line() override;
+
+    // Update the terminal width (e.g., after a SIGWINCH).
+    void set_width(int w) { width_ = w; }
 
 private:
     std::ostream &out_;

@@ -10,6 +10,7 @@
 #include <functional>
 #include <sstream>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include <fmt/format.h>
@@ -29,31 +30,56 @@ static std::string truncate(const std::string &value, size_t max_len) {
     return value.substr(0, max_len);
 }
 
+// Helper: extract the string from a prompt_result, or return false to
+// signal that the caller should abort (EOF / disconnect).
+static bool get_input(prompt_result &result, std::string &out) {
+    if (std::holds_alternative<std::string>(result)) {
+        out = std::get<std::string>(result);
+        return true;
+    }
+    return false;
+}
+
 // ---------------------------------------------------------------------------
 // Sign the guestbook
 // ---------------------------------------------------------------------------
 
 command make_sign_guestbook_command(const std::string &guestbook_bin,
-                                   const std::string &logbook_dir) {
+                                   const std::string &logbook_dir,
+                                   const std::string &default_location) {
     return command{
         .key   = "g",
         .label = "Sign the guestbook",
-        .execute = [guestbook_bin, logbook_dir](renderer &r) {
+        .execute = [guestbook_bin, logbook_dir, default_location](renderer &r) {
             r.show_separator();
             r.show_text("  Sign the Guestbook");
             r.show_separator();
 
-            auto author = r.prompt("  Your name:");
+            auto author_result = r.prompt("  Your name:");
+            std::string author;
+            if (!get_input(author_result, author)) return;
             if (author.empty()) {
                 r.show_error("Name is required.");
                 return;
             }
             author = truncate(author, max_author_length);
 
-            auto location = r.prompt("  Your location (optional):");
+            std::string location_prompt = "  Your location (optional):";
+            if (!default_location.empty()) {
+                location_prompt = fmt::format("  Your location [{}]:",
+                                              default_location);
+            }
+            auto location_result = r.prompt(location_prompt);
+            std::string location;
+            if (!get_input(location_result, location)) return;
+            if (location.empty() && !default_location.empty()) {
+                location = default_location;
+            }
             location = truncate(location, max_location_length);
 
-            auto message = r.prompt("  Your message:");
+            auto message_result = r.prompt("  Your message:");
+            std::string message;
+            if (!get_input(message_result, message)) return;
             if (message.empty()) {
                 r.show_error("Message is required.");
                 return;

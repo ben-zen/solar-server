@@ -139,19 +139,18 @@ void text_renderer::show_menu(
     out_ << '\n';
 }
 
-std::string text_renderer::prompt(const std::string &prompt_text) {
+prompt_result text_renderer::prompt(const std::string &prompt_text) {
     out_ << fmt::format("{}{}{} ", ansi::cyan, prompt_text, ansi::reset);
     out_.flush();
 
     std::string line;
     if (!std::getline(in_, line)) {
-        return "";
+        if (in_.bad()) {
+            return prompt_disconnect{};
+        }
+        return prompt_eof{};
     }
     return line;
-}
-
-bool text_renderer::at_eof() const {
-    return in_.eof() || in_.fail();
 }
 
 void text_renderer::show_entries(const std::vector<guestbook_entry> &entries) {

@@ -12,6 +12,23 @@
 
 namespace fs = std::filesystem;
 
+// Example ~/.solarshrc configuration file:
+//
+//   # Solar shell configuration
+//   title = Solar Server BBS
+//   info = Powered by sunlight
+//   info = ToorCamp 2025
+//   logbook = /srv/guestbook/logbook
+//   messages = /srv/shell/messages
+//   guestbook-bin = /usr/lib/cgi-bin/guestbook
+//   location = ToorCamp
+//   max-entries = 20
+//   width = 80
+//
+// Lines starting with '#' (including indented comments) are ignored.
+// The 'info' key may appear multiple times; values are appended.
+// All other keys use the last value if repeated.
+
 // Trim leading and trailing whitespace from a string in place.
 inline void trim_config_field(std::string &s) {
     auto start = s.find_first_not_of(" \t\r\n");
@@ -46,6 +63,15 @@ inline shell_config parse_config_stream(std::istream &input) {
         else if (key == "logbook")       config.logbook_dir = value;
         else if (key == "messages")      config.messages_dir = value;
         else if (key == "guestbook-bin") config.guestbook_bin = value;
+        else if (key == "location")      config.location = value;
+        else if (key == "max-entries") {
+            try { config.max_entries = std::stoi(value); }
+            catch (...) { /* keep default */ }
+        }
+        else if (key == "width") {
+            try { config.width = std::stoi(value); }
+            catch (...) { /* keep default */ }
+        }
     }
 
     return config;

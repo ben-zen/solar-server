@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <variant>
 
 // Case-insensitive string comparison.
 static std::string to_lower(const std::string &s) {
@@ -34,13 +35,17 @@ void shell::run() {
 
         renderer_->show_menu(menu_items);
 
-        auto choice = renderer_->prompt(">");
+        auto result = renderer_->prompt(">");
+
+        if (std::holds_alternative<prompt_eof>(result) ||
+            std::holds_alternative<prompt_disconnect>(result)) {
+            running_ = false;
+            break;
+        }
+
+        auto &choice = std::get<std::string>(result);
 
         if (choice.empty()) {
-            if (renderer_->at_eof()) {
-                running_ = false;
-                break;
-            }
             renderer_->show_error("Please enter a letter to choose a command.");
             continue;
         }

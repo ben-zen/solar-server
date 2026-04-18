@@ -16,6 +16,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include <fmt/format.h>
@@ -150,18 +151,18 @@ TEST_CASE("text_renderer::prompt reads a line from input") {
     text_renderer r{out, in, 40};
 
     auto result = r.prompt("Name:");
-    CHECK(result == "hello");
+    REQUIRE(std::holds_alternative<std::string>(result));
+    CHECK(std::get<std::string>(result) == "hello");
     CHECK(out.str().find("Name:") != std::string::npos);
 }
 
-TEST_CASE("text_renderer::at_eof returns true after stream exhaustion") {
+TEST_CASE("text_renderer::prompt returns prompt_eof on stream exhaustion") {
     std::ostringstream out;
     std::istringstream in{""};
     text_renderer r{out, in, 40};
 
     auto result = r.prompt(">");
-    CHECK(result.empty());
-    CHECK(r.at_eof());
+    CHECK(std::holds_alternative<prompt_eof>(result));
 }
 
 // ---------------------------------------------------------------------------
@@ -404,7 +405,7 @@ TEST_CASE("shell exits cleanly on EOF") {
 
     sh.run();
 
-    // Should not spin — should exit cleanly.
+    // Should not spin — should exit cleanly via prompt_eof.
     CHECK_FALSE(sh.running_flag());
 }
 
@@ -514,4 +515,70 @@ TEST_CASE("resolve_config_path_from_home finds existing dotfile") {
     auto path = resolve_config_path_from_home(dir.path.string().c_str());
     CHECK_FALSE(path.empty());
     CHECK(path.find(".solarshrc") != std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// config: location, max-entries, width keys
+// ---------------------------------------------------------------------------
+
+TEST_CASE("parse_config_stream parses location key") {
+    std::istringstream input{"location = ToorCamp\n"};
+    auto config = parse_config_stream(input);
+    CHECK(config.location == "ToorCamp");
+}
+
+TEST_CASE("parse_config_stream parses max-entries key") {
+    std::istringstream input{"max-entries = 25\n"};
+    auto config = parse_config_stream(input);
+    CHECK(config.max_entries == 25);
+}
+
+TEST_CASE("parse_config_stream parses width key") {
+    std::istringstream input{"width = 80\n"};
+    auto config = parse_config_stream(input);
+    CHECK(config.width == 80);
+}
+
+TEST_CASE("parse_config_stream handles invalid numeric values gracefully") {
+    std::istringstream input{
+        "max-entries = not_a_number\n"
+        "width = abc\n"
+    };
+    auto config = parse_config_stream(input);
+    // Should keep defaults on parse failure.
+    CHECK(config.max_entries == 10);
+    CHECK(config.width == 0);
+}
+
+// ---------------------------------------------------------------------------
+// command: make_sign_guestbook_command with default location
+// ---------------------------------------------------------------------------
+
+TEST_CASE("make_sign_guestbook_command shows default location in prompt") {
+    auto cmd = make_sign_guestbook_command("/nonexistent/bin", "/tmp",
+                                           "ToorCamp");
+
+    std::ostringstream out;
+    std::istringstream in{"TestUser\n\nHello!\n"};
+    text_renderer r{out, in, 40};
+
+    cmd.execute(r);
+    // The location prompt should show the default.
+    CHECK(out.str().find("ToorCamp") != std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// prompt_result variant: EOF handling in sign command
+// ---------------------------------------------------------------------------
+
+TEST_CASE("make_sign_guestbook_command aborts on EOF during name prompt") {
+    auto cmd = make_sign_guestbook_command("/nonexistent/bin", "/tmp");
+
+    std::ostringstream out;
+    std::istringstream in{""};  // EOF immediately.
+    text_renderer r{out, in, 40};
+
+    cmd.execute(r);
+    // Should not crash or show "Thank you" — just abort silently.
+    CHECK(out.str().find("Thank you") == std::string::npos);
 }

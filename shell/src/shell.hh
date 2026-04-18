@@ -26,6 +26,15 @@ struct shell_config {
 
     // Path to the guestbook binary (invoked via fork/exec for signing).
     std::string guestbook_bin = "guestbook";
+
+    // Default location pre-filled in the guestbook sign prompt.
+    std::string location{};
+
+    // Maximum number of recent guestbook entries to display.
+    int max_entries = 10;
+
+    // Default terminal width for formatting (0 = auto-detect).
+    int width = 0;
 };
 
 // The main BBS shell.
