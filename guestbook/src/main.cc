@@ -103,7 +103,14 @@ int main(int argc, char **argv) {
 
         auto validated = validate_form_fields(form_data);
         if (auto *errs = std::get_if<validation_errors>(&validated)) {
-            err << fmt::format("CGI error: form validation failed (missing or empty name/message)\n");
+            std::string failing;
+            for (const auto &[field, entry] : *errs) {
+                if (entry.reason.has_value()) {
+                    if (!failing.empty()) failing += ", ";
+                    failing += field;
+                }
+            }
+            err << fmt::format("CGI error: form validation failed ({})\n", failing);
             std::cout << generate_cgi_form_error(*errs, redirect_url);
             return 1;
         }
