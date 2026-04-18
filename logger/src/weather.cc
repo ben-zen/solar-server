@@ -67,7 +67,7 @@ std::string get_forecast_url()
 
 extern "C"
 size_t gather_response(void *buffer,
-                       size_t size,
+                       size_t /*size*/,
                        size_t nmemb,
                        void *userp)
 {

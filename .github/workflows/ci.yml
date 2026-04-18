@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Cache apt packages
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/apt-cache
           key: apt-${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-${{ hashFiles('.github/workflows/ci.yml') }}
@@ -36,11 +36,16 @@ jobs:
             clang pkg-config libfmt-dev libcurl4-openssl-dev hugo
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.x'
-          cache: 'pip'
-          cache-dependency-path: '.github/requirements.txt'
+
+      - name: Cache pip packages
+        uses: actions/cache@v5
+        with:
+          path: ~/.cache/pip
+          key: pip-${{ runner.os }}-${{ hashFiles('.github/requirements.txt') }}
+          restore-keys: pip-${{ runner.os }}-
 
       - name: Install meson and ninja
         run: python -m pip install -r .github/requirements.txt
