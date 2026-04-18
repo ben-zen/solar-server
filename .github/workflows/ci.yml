@@ -25,7 +25,9 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          mkdir -p ~/apt-cache
+          mkdir -p "$HOME/apt-cache/partial"
+          sudo chown _apt:root "$HOME/apt-cache/partial"
+          sudo chmod 700 "$HOME/apt-cache/partial"
           sudo apt-get update
           sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-cache" clang pkg-config libfmt-dev libcurl4-openssl-dev hugo
 
