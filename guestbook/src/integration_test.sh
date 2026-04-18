@@ -114,13 +114,32 @@ echo "--- CGI mode: missing required field (no message) returns 400 ---"
 stdout=$(echo -n "name=Alice&location=here" \
     | CONTENT_LENGTH=24 "$GUESTBOOK" 2>/dev/null) || true
 assert_stdout_contains "cgi-missing-message-400" "Status: 400 Bad Request" "$stdout"
-assert_stdout_contains "cgi-missing-message-detail" "name" "$stdout"
+assert_stdout_contains "cgi-missing-message-detail" "<strong>message</strong>" "$stdout"
+assert_stdout_contains "cgi-missing-message-flag" "Message <em>(error)</em>" "$stdout"
 
 echo "--- CGI mode: missing name returns 400 ---"
 stdout=$(echo -n "location=here&message=test" \
-    | CONTENT_LENGTH=25 "$GUESTBOOK" 2>/dev/null) || true
+    | CONTENT_LENGTH=26 "$GUESTBOOK" 2>/dev/null) || true
 assert_stdout_contains "cgi-missing-name-400" "Status: 400 Bad Request" "$stdout"
-assert_stdout_contains "cgi-missing-name-detail" "name" "$stdout"
+assert_stdout_contains "cgi-missing-name-detail" "<strong>name</strong>" "$stdout"
+assert_stdout_contains "cgi-missing-name-flag" "Name <em>(error)</em>" "$stdout"
+
+echo "--- CGI mode: missing both name and message returns 400 with both errors ---"
+stdout=$(echo -n "location=here" \
+    | CONTENT_LENGTH=13 "$GUESTBOOK" 2>/dev/null) || true
+assert_stdout_contains "cgi-missing-both-400" "Status: 400 Bad Request" "$stdout"
+assert_stdout_contains "cgi-missing-both-name" "<strong>name</strong>" "$stdout"
+assert_stdout_contains "cgi-missing-both-message" "<strong>message</strong>" "$stdout"
+
+echo "--- CGI mode: form error page uses HTTP_REFERER for return link ---"
+stdout=$(echo -n "name=Alice&location=here" \
+    | CONTENT_LENGTH=24 HTTP_REFERER="/guestbook" "$GUESTBOOK" 2>/dev/null) || true
+assert_stdout_contains "cgi-form-error-return-url" 'href="/guestbook"' "$stdout"
+
+echo "--- CGI mode: form error page defaults return link to / ---"
+stdout=$(echo -n "name=Alice&location=here" \
+    | CONTENT_LENGTH=24 "$GUESTBOOK" 2>/dev/null) || true
+assert_stdout_contains "cgi-form-error-default-return" 'href="/"' "$stdout"
 
 echo "--- CGI mode: zero content returns 400 with detail ---"
 stdout=$(echo -n "" | CONTENT_LENGTH=0 "$GUESTBOOK" 2>/dev/null) || true

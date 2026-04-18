@@ -94,24 +94,31 @@ int main(int argc, char **argv) {
         std::string content = read_cgi_input(std::cin, content_length.value());
         auto form_data = unpack_form_data(content);
 
-        auto validated = validate_form_fields(form_data);
-        if (!validated.has_value()) {
-            err << fmt::format("CGI error: form validation failed (missing or empty name/message)\n");
-            std::cout << generate_cgi_error(HttpStatus::bad_request,
-                                            "Missing required fields: both 'name' and 'message' must be provided and non-empty");
-            return 1;
-        }
-
-        auto &fields = validated.value();
-        auto timestamp = std::chrono::system_clock::now();
-        write_to_logbook(fields["name"], fields["location"], fields["message"], env_vars, timestamp);
-
-        // Redirect back to the referring page or the site root.
+        // Determine the return URL from the referring page or fall back to /.
         std::string host = env_vars.contains("HTTP_HOST") ? env_vars["HTTP_HOST"] : "";
         std::string redirect_url = "/";
         if (env_vars.contains("HTTP_REFERER") && !env_vars["HTTP_REFERER"].empty()) {
             redirect_url = sanitize_redirect_target(env_vars["HTTP_REFERER"], host);
         }
+
+        auto validated = validate_form_fields(form_data);
+        if (auto *errs = std::get_if<validation_errors>(&validated)) {
+            std::string failing;
+            for (const auto &[field, entry] : *errs) {
+                if (entry.reason.has_value()) {
+                    if (!failing.empty()) failing += ", ";
+                    failing += field;
+                }
+            }
+            err << fmt::format("CGI error: form validation failed ({})\n", failing);
+            std::cout << generate_cgi_form_error(*errs, redirect_url);
+            return 1;
+        }
+
+        auto &fields = std::get<validated_fields>(validated);
+        auto timestamp = std::chrono::system_clock::now();
+        write_to_logbook(fields["name"], fields["location"], fields["message"], env_vars, timestamp);
+
         std::cout << generate_cgi_redirect(redirect_url);
         return 0;
     }
@@ -158,12 +165,12 @@ int main(int argc, char **argv) {
 
     auto form_data = unpack_form_data(content);
     auto validated = validate_form_fields(form_data);
-    if (!validated.has_value()) {
+    if (std::holds_alternative<validation_errors>(validated)) {
         err << fmt::format("Invalid form data: name and message are required.\n");
         return 1;
     }
 
-    auto &fields = validated.value();
+    auto &fields = std::get<validated_fields>(validated);
     auto timestamp = std::chrono::system_clock::now();
     write_to_logbook(fields["name"], fields["location"], fields["message"], env_vars, timestamp);
     format_entry(std::cout, fields["name"], fields["location"], fields["message"], timestamp);
