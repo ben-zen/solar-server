@@ -556,8 +556,8 @@ TEST_CASE("validate_form_fields rejects missing name") {
     auto result = validate_form_fields(form);
     REQUIRE(std::holds_alternative<validation_errors>(result));
     auto &errs = std::get<validation_errors>(result);
-    REQUIRE(errs.errors.size() == 1);
-    CHECK(errs.errors[0].field == "name");
+    REQUIRE(errs.at("name").reason.has_value());
+    CHECK(errs.at("name").reason.value() == "required, but missing or empty");
 }
 
 TEST_CASE("validate_form_fields rejects missing message") {
@@ -567,8 +567,9 @@ TEST_CASE("validate_form_fields rejects missing message") {
     auto result = validate_form_fields(form);
     REQUIRE(std::holds_alternative<validation_errors>(result));
     auto &errs = std::get<validation_errors>(result);
-    REQUIRE(errs.errors.size() == 1);
-    CHECK(errs.errors[0].field == "message");
+    REQUIRE(errs.at("message").reason.has_value());
+    CHECK(errs.at("message").reason.value() == "required, but missing or empty");
+    CHECK_FALSE(errs.at("name").reason.has_value());
 }
 
 TEST_CASE("validate_form_fields allows missing location") {
@@ -587,8 +588,8 @@ TEST_CASE("validate_form_fields rejects empty name") {
     auto result = validate_form_fields(form);
     REQUIRE(std::holds_alternative<validation_errors>(result));
     auto &errs = std::get<validation_errors>(result);
-    REQUIRE(errs.errors.size() == 1);
-    CHECK(errs.errors[0].field == "name");
+    REQUIRE(errs.at("name").reason.has_value());
+    CHECK_FALSE(errs.at("message").reason.has_value());
 }
 
 TEST_CASE("validate_form_fields rejects empty message") {
@@ -598,8 +599,8 @@ TEST_CASE("validate_form_fields rejects empty message") {
     auto result = validate_form_fields(form);
     REQUIRE(std::holds_alternative<validation_errors>(result));
     auto &errs = std::get<validation_errors>(result);
-    REQUIRE(errs.errors.size() == 1);
-    CHECK(errs.errors[0].field == "message");
+    REQUIRE(errs.at("message").reason.has_value());
+    CHECK_FALSE(errs.at("name").reason.has_value());
 }
 
 TEST_CASE("validate_form_fields reports both name and message errors") {
@@ -609,9 +610,9 @@ TEST_CASE("validate_form_fields reports both name and message errors") {
     auto result = validate_form_fields(form);
     REQUIRE(std::holds_alternative<validation_errors>(result));
     auto &errs = std::get<validation_errors>(result);
-    REQUIRE(errs.errors.size() == 2);
-    CHECK(errs.errors[0].field == "name");
-    CHECK(errs.errors[1].field == "message");
+    REQUIRE(errs.at("name").reason.has_value());
+    REQUIRE(errs.at("message").reason.has_value());
+    CHECK_FALSE(errs.at("location").reason.has_value());
 }
 
 TEST_CASE("validate_form_fields truncates long fields") {
@@ -758,28 +759,33 @@ TEST_CASE("generate_cgi_error with 3xx code returns 500") {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("generate_cgi_form_error produces 400 response") {
-    validation_errors vr;
-    vr.errors = {{"name", "required, but missing or empty"}};
-    vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
+    validation_errors vr = {
+        {"name", {"", "required, but missing or empty"}},
+        {"location", {"", std::nullopt}},
+        {"message", {"Hi", std::nullopt}},
+    };
     auto response = generate_cgi_form_error(vr);
     CHECK(response.find("Status: 400 Bad Request") != std::string::npos);
     CHECK(response.find("Content-Type: text/html") != std::string::npos);
 }
 
 TEST_CASE("generate_cgi_form_error lists failing fields in error summary") {
-    validation_errors vr;
-    vr.errors = {{"name", "required, but missing or empty"},
-                 {"message", "required, but missing or empty"}};
-    vr.fields = {{"name", ""}, {"location", "here"}, {"message", ""}};
+    validation_errors vr = {
+        {"name", {"", "required, but missing or empty"}},
+        {"location", {"here", std::nullopt}},
+        {"message", {"", "required, but missing or empty"}},
+    };
     auto response = generate_cgi_form_error(vr);
     CHECK(response.find("<strong>name</strong>") != std::string::npos);
     CHECK(response.find("<strong>message</strong>") != std::string::npos);
 }
 
 TEST_CASE("generate_cgi_form_error shows submitted values") {
-    validation_errors vr;
-    vr.errors = {{"message", "required, but missing or empty"}};
-    vr.fields = {{"name", "Alice"}, {"location", "Seattle"}, {"message", ""}};
+    validation_errors vr = {
+        {"name", {"Alice", std::nullopt}},
+        {"location", {"Seattle", std::nullopt}},
+        {"message", {"", "required, but missing or empty"}},
+    };
     auto response = generate_cgi_form_error(vr);
     CHECK(response.find("Alice") != std::string::npos);
     CHECK(response.find("Seattle") != std::string::npos);
@@ -787,9 +793,11 @@ TEST_CASE("generate_cgi_form_error shows submitted values") {
 }
 
 TEST_CASE("generate_cgi_form_error flags the invalid field with (error)") {
-    validation_errors vr;
-    vr.errors = {{"name", "required, but missing or empty"}};
-    vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
+    validation_errors vr = {
+        {"name", {"", "required, but missing or empty"}},
+        {"location", {"", std::nullopt}},
+        {"message", {"Hi", std::nullopt}},
+    };
     auto response = generate_cgi_form_error(vr);
     // The name field should be flagged.
     CHECK(response.find("Name <em>(error)</em>") != std::string::npos);
@@ -798,18 +806,22 @@ TEST_CASE("generate_cgi_form_error flags the invalid field with (error)") {
 }
 
 TEST_CASE("generate_cgi_form_error escapes HTML in field values") {
-    validation_errors vr;
-    vr.errors = {{"message", "required, but missing or empty"}};
-    vr.fields = {{"name", "<script>alert(1)</script>"}, {"location", ""}, {"message", ""}};
+    validation_errors vr = {
+        {"name", {"<script>alert(1)</script>", std::nullopt}},
+        {"location", {"", std::nullopt}},
+        {"message", {"", "required, but missing or empty"}},
+    };
     auto response = generate_cgi_form_error(vr);
     CHECK(response.find("<script>") == std::string::npos);
     CHECK(response.find("&lt;script&gt;") != std::string::npos);
 }
 
 TEST_CASE("generate_cgi_form_error uses semantic HTML elements") {
-    validation_errors vr;
-    vr.errors = {{"name", "required, but missing or empty"}};
-    vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
+    validation_errors vr = {
+        {"name", {"", "required, but missing or empty"}},
+        {"location", {"", std::nullopt}},
+        {"message", {"Hi", std::nullopt}},
+    };
     auto response = generate_cgi_form_error(vr);
     CHECK(response.find("<dl>") != std::string::npos);
     CHECK(response.find("<dt>") != std::string::npos);
@@ -822,26 +834,32 @@ TEST_CASE("generate_cgi_form_error uses semantic HTML elements") {
 }
 
 TEST_CASE("generate_cgi_form_error uses custom return URL") {
-    validation_errors vr;
-    vr.errors = {{"name", "required, but missing or empty"}};
-    vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
+    validation_errors vr = {
+        {"name", {"", "required, but missing or empty"}},
+        {"location", {"", std::nullopt}},
+        {"message", {"Hi", std::nullopt}},
+    };
     auto response = generate_cgi_form_error(vr, "/guestbook");
     CHECK(response.find("href=\"/guestbook\"") != std::string::npos);
     CHECK(response.find("href=\"/\"") == std::string::npos);
 }
 
 TEST_CASE("generate_cgi_form_error escapes return URL") {
-    validation_errors vr;
-    vr.errors = {{"name", "required, but missing or empty"}};
-    vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
+    validation_errors vr = {
+        {"name", {"", "required, but missing or empty"}},
+        {"location", {"", std::nullopt}},
+        {"message", {"Hi", std::nullopt}},
+    };
     auto response = generate_cgi_form_error(vr, "/page?a=1&b=2");
     CHECK(response.find("href=\"/page?a=1&amp;b=2\"") != std::string::npos);
 }
 
 TEST_CASE("generate_cgi_form_error rejects javascript: scheme in return URL") {
-    validation_errors vr;
-    vr.errors = {{"name", "required, but missing or empty"}};
-    vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
+    validation_errors vr = {
+        {"name", {"", "required, but missing or empty"}},
+        {"location", {"", std::nullopt}},
+        {"message", {"Hi", std::nullopt}},
+    };
     auto response = generate_cgi_form_error(vr, "javascript:alert(1)");
     // Should fall back to "/" instead of embedding the dangerous scheme.
     CHECK(response.find("javascript:") == std::string::npos);

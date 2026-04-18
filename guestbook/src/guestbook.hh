@@ -296,46 +296,47 @@ inline std::string truncate_field(const std::string &value, size_t max_length) {
     return value.substr(0, max_length);
 }
 
-// Describes a single field-level validation error.
+// Describes a single form field's submitted value with an optional error.
+// Non-erroring fields carry only a value; erroring fields also carry a reason.
 struct field_error {
-    std::string field;   // e.g. "name", "message"
-    std::string reason;  // human-readable explanation
+    std::string value;                      // sanitized/truncated submitted value
+    std::optional<std::string> reason;      // present only for fields with errors
 };
 
 // Success type: a map of sanitized/truncated field values.
 using validated_fields = std::map<std::string, std::string>;
 
-// Failure type: per-field errors plus the (sanitized) submitted values for
-// display in the error page.
-struct validation_errors {
-    std::vector<field_error> errors;
-    std::map<std::string, std::string> fields;
-};
+// Failure type: a map from field name to its value and optional error reason.
+using validation_errors = std::map<std::string, field_error>;
 
 // Result of form validation — holds either the validated field map (success)
-// or a validation_errors bundle (failure).
+// or a validation_errors map (failure).
 using form_validation_result = std::variant<validated_fields, validation_errors>;
 
 // Validates required form fields are present and non-empty (name, message),
 // truncates all fields to their respective max lengths, and returns the
 // sanitized fields. Location is optional (defaults to empty).
-// On failure the result contains per-field error descriptions along with the
-// sanitized values for display purposes.
+// On failure the result contains per-field entries with optional error reasons
+// alongside the sanitized values for display purposes.
 inline form_validation_result validate_form_fields(
         const std::map<std::string, std::string> &form_data) {
 
-    std::vector<field_error> errors;
+    bool has_errors = false;
 
     auto name_it = form_data.find("name");
     std::string name_value = (name_it != form_data.end()) ? name_it->second : "";
+    std::optional<std::string> name_reason;
     if (name_value.empty()) {
-        errors.push_back({"name", "required, but missing or empty"});
+        name_reason = "required, but missing or empty";
+        has_errors = true;
     }
 
     auto message_it = form_data.find("message");
     std::string message_value = (message_it != form_data.end()) ? message_it->second : "";
+    std::optional<std::string> message_reason;
     if (message_value.empty()) {
-        errors.push_back({"message", "required, but missing or empty"});
+        message_reason = "required, but missing or empty";
+        has_errors = true;
     }
 
     std::string location{};
@@ -344,15 +345,19 @@ inline form_validation_result validate_form_fields(
         location = location_it->second;
     }
 
-    std::map<std::string, std::string> fields;
+    if (has_errors) {
+        validation_errors result;
+        result["name"] = {truncate_field(name_value, max_author_length), name_reason};
+        result["location"] = {truncate_field(location, max_location_length), std::nullopt};
+        result["message"] = {truncate_field(message_value, max_message_length), message_reason};
+        return result;
+    }
+
+    validated_fields fields;
     fields["name"] = truncate_field(name_value, max_author_length);
     fields["location"] = truncate_field(location, max_location_length);
     fields["message"] = truncate_field(message_value, max_message_length);
-
-    if (!errors.empty()) {
-        return validation_errors{std::move(errors), std::move(fields)};
-    }
-    return validated_fields{std::move(fields)};
+    return fields;
 }
 
 // Reads exactly content_length bytes from the given input stream.
@@ -442,18 +447,14 @@ inline std::string generate_cgi_form_error(
     // caller forgets to sanitize.
     std::string safe_url = sanitize_redirect_target(return_url);
 
-    // Build a set of field names that have errors, for quick lookup.
-    std::map<std::string, std::string> error_map;
-    for (const auto &e : result.errors) {
-        error_map[e.field] = e.reason;
-    }
-
-    // Construct the list of error summaries.
+    // Construct the list of error summaries (only fields with a reason).
     std::string error_list;
-    for (const auto &e : result.errors) {
-        error_list += fmt::format(
-            "    <li><strong>{}</strong>: {}</li>\n",
-            html_escape(e.field), html_escape(e.reason));
+    for (const auto &[field, entry] : result) {
+        if (entry.reason.has_value()) {
+            error_list += fmt::format(
+                "    <li><strong>{}</strong>: {}</li>\n",
+                html_escape(field), html_escape(entry.reason.value()));
+        }
     }
 
     // Construct description list of submitted values, flagging bad fields.
@@ -466,19 +467,19 @@ inline std::string generate_cgi_form_error(
 
     std::string field_rows;
     for (const auto &[key, label] : field_labels) {
-        auto value_it = result.fields.find(key);
-        std::string safe_value = (value_it != result.fields.end())
-            ? html_escape(value_it->second) : "";
+        auto it = result.find(key);
+        std::string safe_value = (it != result.end())
+            ? html_escape(it->second.value) : "";
 
-        auto err_it = error_map.find(key);
-        if (err_it != error_map.end()) {
+        bool has_error = (it != result.end() && it->second.reason.has_value());
+        if (has_error) {
             field_rows += fmt::format(
                 "    <dt>{} <em>(error)</em></dt>\n"
                 "    <dd><code>{}</code></dd>\n"
                 "    <dd><em>{}</em></dd>\n",
                 html_escape(label),
                 safe_value.empty() ? std::string("(empty)") : safe_value,
-                html_escape(err_it->second));
+                html_escape(it->second.reason.value()));
         } else {
             field_rows += fmt::format(
                 "    <dt>{}</dt>\n"
