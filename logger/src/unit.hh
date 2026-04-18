@@ -39,7 +39,7 @@ struct watts {};
 template<>
 struct fmt::formatter<volts> : fmt::formatter<std::string_view> {
     template <typename Context>
-    auto format(const volts &v, Context &ctx) const {
+    auto format(const volts &, Context &ctx) const {
         return fmt::formatter<std::string_view>::format("V", ctx);
     }
 };
@@ -47,7 +47,7 @@ struct fmt::formatter<volts> : fmt::formatter<std::string_view> {
 template<>
 struct fmt::formatter<watts> : fmt::formatter<std::string_view> {
     template <typename Context>
-    auto format(const watts &w, Context &ctx) const {
+    auto format(const watts &, Context &ctx) const {
         return fmt::formatter<std::string_view>::format("W", ctx);
     }
 };
