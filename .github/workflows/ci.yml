@@ -25,11 +25,15 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          mkdir -p "$HOME/apt-cache/partial"
-          sudo chown _apt:root "$HOME/apt-cache/partial"
-          sudo chmod 700 "$HOME/apt-cache/partial"
+          mkdir -p "$HOME/apt-cache"
+          sudo mkdir -p /tmp/apt-partial
+          sudo chown _apt:root /tmp/apt-partial
+          sudo chmod 700 /tmp/apt-partial
           sudo apt-get update
-          sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-cache" clang pkg-config libfmt-dev libcurl4-openssl-dev hugo
+          sudo apt-get install -y \
+            -o Dir::Cache::Archives="$HOME/apt-cache" \
+            -o Dir::Cache::Archives::partial=/tmp/apt-partial \
+            clang pkg-config libfmt-dev libcurl4-openssl-dev hugo
 
       - name: Set up Python
         uses: actions/setup-python@v5
