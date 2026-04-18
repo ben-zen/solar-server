@@ -12,21 +12,22 @@ permissions:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
 
       - name: Cache apt packages
         uses: actions/cache@v4
         with:
-          path: /var/cache/apt/archives
-          key: apt-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}
-          restore-keys: apt-${{ runner.os }}-
+          path: ~/apt-cache
+          key: apt-${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: apt-${{ runner.os }}-${{ runner.arch }}-ubuntu-24.04-
 
       - name: Install system dependencies
         run: |
+          mkdir -p ~/apt-cache
           sudo apt-get update
-          sudo apt-get install -y clang pkg-config libfmt-dev libcurl4-openssl-dev hugo
+          sudo apt-get install -y -o Dir::Cache::Archives="$HOME/apt-cache" clang pkg-config libfmt-dev libcurl4-openssl-dev hugo
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -36,7 +37,7 @@ jobs:
           cache-dependency-path: '.github/requirements.txt'
 
       - name: Install meson and ninja
-        run: pip install -r .github/requirements.txt
+        run: python -m pip install -r .github/requirements.txt
 
       - name: Install just
         uses: extractions/setup-just@v4
