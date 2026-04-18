@@ -27,6 +27,10 @@ struct command {
     std::function<void(renderer &)> execute;
 };
 
+// Forward declaration.
+struct shell_config;
+class shell;
+
 // ---------------------------------------------------------------------------
 // Built-in command factories.
 //
@@ -51,3 +55,7 @@ command make_read_messages_command(const std::string &messages_dir);
 
 // Quit the shell (sets |running| to false).
 command make_quit_command(bool &running);
+
+// Register the standard set of built-in commands with |sh| based on
+// the provided configuration.
+void register_default_commands(shell &sh, const shell_config &config);

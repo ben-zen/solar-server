@@ -3,6 +3,7 @@
 
 #include "command.hh"
 #include "guestbook_io.hh"
+#include "shell.hh"
 
 #include <algorithm>
 #include <filesystem>
@@ -200,4 +201,18 @@ command make_quit_command(bool &running) {
             running = false;
         }
     };
+}
+
+// ---------------------------------------------------------------------------
+// Register default commands
+// ---------------------------------------------------------------------------
+
+void register_default_commands(shell &sh, const shell_config &config) {
+    sh.add_command(make_sign_guestbook_command(config.guestbook_bin,
+                                               config.logbook_dir,
+                                               config.location));
+    sh.add_command(make_read_guestbook_command(config.logbook_dir,
+                                               config.max_entries));
+    sh.add_command(make_read_messages_command(config.messages_dir));
+    sh.add_command(make_quit_command(sh.running_flag()));
 }

@@ -40,6 +40,48 @@ static int resolve_width(int configured) {
     return detected > 0 ? detected : 72;
 }
 
+// Configure the argument parser with all supported flags.
+static void configure_arg_parser(argparse::ArgumentParser &parser) {
+    parser.add_argument("--config")
+        .help("Path to configuration file (default: ~/.solarshrc)")
+        .default_value(std::string{""});
+
+    parser.add_argument("--logbook")
+        .help("Path to the guestbook logbook directory")
+        .default_value(std::string{""});
+
+    parser.add_argument("--messages")
+        .help("Path to the sysop messages directory")
+        .default_value(std::string{""});
+
+    parser.add_argument("--guestbook-bin")
+        .help("Path to the guestbook binary")
+        .default_value(std::string{""});
+
+    parser.add_argument("--title")
+        .help("Banner title")
+        .default_value(std::string{""});
+
+    parser.add_argument("--info")
+        .help("Extra info line for the banner (may be repeated)")
+        .append()
+        .default_value(std::vector<std::string>{});
+
+    parser.add_argument("--location")
+        .help("Default location pre-filled in the guestbook sign prompt")
+        .default_value(std::string{""});
+
+    parser.add_argument("--width")
+        .help("Terminal width for formatting (0 = auto-detect)")
+        .default_value(0)
+        .scan<'i', int>();
+
+    parser.add_argument("--max-entries")
+        .help("Maximum number of recent guestbook entries to display")
+        .default_value(10)
+        .scan<'i', int>();
+}
+
 // Apply CLI argument overrides to a shell_config.  Only values that were
 // explicitly provided on the command line replace the config-file defaults.
 static void apply_cli_overrides(shell_config &config,
@@ -74,45 +116,7 @@ static void apply_cli_overrides(shell_config &config,
 int main(int argc, char **argv) {
     argparse::ArgumentParser arg_parser{"solar-shell", "0.1.0",
                                         argparse::default_arguments::help};
-
-    arg_parser.add_argument("--config")
-        .help("Path to configuration file (default: ~/.solarshrc)")
-        .default_value(std::string{""});
-
-    arg_parser.add_argument("--logbook")
-        .help("Path to the guestbook logbook directory")
-        .default_value(std::string{""});
-
-    arg_parser.add_argument("--messages")
-        .help("Path to the sysop messages directory")
-        .default_value(std::string{""});
-
-    arg_parser.add_argument("--guestbook-bin")
-        .help("Path to the guestbook binary")
-        .default_value(std::string{""});
-
-    arg_parser.add_argument("--title")
-        .help("Banner title")
-        .default_value(std::string{""});
-
-    arg_parser.add_argument("--info")
-        .help("Extra info line for the banner (may be repeated)")
-        .append()
-        .default_value(std::vector<std::string>{});
-
-    arg_parser.add_argument("--location")
-        .help("Default location pre-filled in the guestbook sign prompt")
-        .default_value(std::string{""});
-
-    arg_parser.add_argument("--width")
-        .help("Terminal width for formatting (0 = auto-detect)")
-        .default_value(0)
-        .scan<'i', int>();
-
-    arg_parser.add_argument("--max-entries")
-        .help("Maximum number of recent guestbook entries to display")
-        .default_value(10)
-        .scan<'i', int>();
+    configure_arg_parser(arg_parser);
 
     try {
         arg_parser.parse_args(argc, argv);
@@ -140,13 +144,7 @@ int main(int argc, char **argv) {
     auto rend = std::make_unique<text_renderer>(std::cout, std::cin, width);
 
     shell sh{std::move(rend), config};
-    sh.add_command(make_sign_guestbook_command(config.guestbook_bin,
-                                               config.logbook_dir,
-                                               config.location));
-    sh.add_command(make_read_guestbook_command(config.logbook_dir,
-                                               config.max_entries));
-    sh.add_command(make_read_messages_command(config.messages_dir));
-    sh.add_command(make_quit_command(sh.running_flag()));
+    register_default_commands(sh, config);
 
     sh.run();
 
