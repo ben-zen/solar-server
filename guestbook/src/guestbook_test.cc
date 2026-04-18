@@ -838,6 +838,16 @@ TEST_CASE("generate_cgi_form_error escapes return URL") {
     CHECK(response.find("href=\"/page?a=1&amp;b=2\"") != std::string::npos);
 }
 
+TEST_CASE("generate_cgi_form_error rejects javascript: scheme in return URL") {
+    validation_errors vr;
+    vr.errors = {{"name", "required, but missing or empty"}};
+    vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
+    auto response = generate_cgi_form_error(vr, "javascript:alert(1)");
+    // Should fall back to "/" instead of embedding the dangerous scheme.
+    CHECK(response.find("javascript:") == std::string::npos);
+    CHECK(response.find("href=\"/\"") != std::string::npos);
+}
+
 // ---------------------------------------------------------------------------
 // html_escape — prevents XSS in HTML output
 // ---------------------------------------------------------------------------
