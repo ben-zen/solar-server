@@ -4,6 +4,8 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest.h>
 
+#include <filesystem>
+#include <fstream>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -932,4 +934,48 @@ TEST_CASE("make_forecast_url constructs correct URL for Washington DC") {
 TEST_CASE("make_forecast_url constructs correct URL for Marrowstone Island") {
     nws_location loc{"K0S9", "SEW", 118, 92};
     CHECK(make_forecast_url(loc) == "https://api.weather.gov/gridpoints/SEW/118,92/forecast");
+}
+
+// ---------------------------------------------------------------------------
+// report_to_css — file path overload
+// ---------------------------------------------------------------------------
+
+TEST_CASE("report_to_css writes to a valid file path") {
+    status_report report{};
+    report.current_weather = {"now", overall_condition::clear, {70.0f, temperature_unit::fahrenheit}};
+    report.upcoming_days = {
+        {"tomorrow", overall_condition::clear, {70.0f, temperature_unit::fahrenheit}},
+        {"overmorrow", overall_condition::clear, {70.0f, temperature_unit::fahrenheit}},
+    };
+    report.uptime = std::chrono::seconds(100);
+    report.battery_voltage = voltage<float>(12.5f);
+    report.is_charging = false;
+
+    auto path = std::filesystem::temp_directory_path() / "logger_test_output.css";
+    int result = report_to_css(report, path);
+    CHECK(result == 0);
+
+    // Verify the file was written with expected content
+    std::ifstream in(path);
+    std::string css((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    CHECK(css.find(".weather-icon") != std::string::npos);
+    CHECK(css.find(".uptime::after") != std::string::npos);
+
+    std::filesystem::remove(path);
+}
+
+TEST_CASE("report_to_css returns error for unwriteable path") {
+    status_report report{};
+    report.current_weather = {"now", overall_condition::clear, {70.0f, temperature_unit::fahrenheit}};
+    report.upcoming_days = {
+        {"tomorrow", overall_condition::clear, {70.0f, temperature_unit::fahrenheit}},
+        {"overmorrow", overall_condition::clear, {70.0f, temperature_unit::fahrenheit}},
+    };
+    report.uptime = std::chrono::seconds(0);
+    report.battery_voltage = voltage<float>(12.0f);
+    report.is_charging = false;
+
+    std::filesystem::path bad_path{"/nonexistent/dir/output.css"};
+    int result = report_to_css(report, bad_path);
+    CHECK(result != 0);
 }

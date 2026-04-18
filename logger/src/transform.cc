@@ -2,6 +2,9 @@
 #include "transform.hh"
 #include "weather.hh"
 
+#include <filesystem>
+#include <fstream>
+
 #include <fmt/chrono.h>
 
 #include "include_ext/json.hpp"
@@ -75,6 +78,27 @@ int report_to_css(const status_report &report, std::ostream &out) {
         << fmt::format(R"(.battery-status::after {{ content: "{}"; }})", report.battery_voltage) << std::endl
         << fmt::format(R"(.uptime::after {{ content: "{:%T}"; }})", report.uptime)
         << std::endl;
+
+    return 0;
+}
+
+int report_to_css(const status_report &report, const std::filesystem::path &destination) {
+    std::fstream out_file{destination, std::ios::out | std::ios::trunc};
+    if (!out_file.is_open()) {
+        std::cerr << fmt::format("Error: could not open output file: {}\n", destination.string());
+        return 1;
+    }
+
+    int result = report_to_css(report, out_file);
+    if (result != 0) {
+        return result;
+    }
+
+    out_file.close();
+    if (out_file.fail()) {
+        std::cerr << fmt::format("Error: failed writing to output file: {}\n", destination.string());
+        return 1;
+    }
 
     return 0;
 }
