@@ -13,6 +13,7 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <variant>
 #include <vector>
 
 #include <fmt/chrono.h>
@@ -301,35 +302,40 @@ struct field_error {
     std::string reason;  // human-readable explanation
 };
 
-// Result of form validation.  On success |ok| is true and |fields| contains
-// the sanitized values.  On failure |ok| is false and |errors| lists every
-// field that failed, while |fields| still holds whatever values were present
-// (for display in the error page).
-struct form_validation_result {
-    bool ok = false;
-    std::map<std::string, std::string> fields;
+// Success type: a map of sanitized/truncated field values.
+using validated_fields = std::map<std::string, std::string>;
+
+// Failure type: per-field errors plus the (sanitized) submitted values for
+// display in the error page.
+struct validation_errors {
     std::vector<field_error> errors;
+    std::map<std::string, std::string> fields;
 };
+
+// Result of form validation — holds either the validated field map (success)
+// or a validation_errors bundle (failure).
+using form_validation_result = std::variant<validated_fields, validation_errors>;
 
 // Validates required form fields are present and non-empty (name, message),
 // truncates all fields to their respective max lengths, and returns the
 // sanitized fields. Location is optional (defaults to empty).
-// On failure the result contains per-field error descriptions.
+// On failure the result contains per-field error descriptions along with the
+// sanitized values for display purposes.
 inline form_validation_result validate_form_fields(
         const std::map<std::string, std::string> &form_data) {
 
-    form_validation_result result;
+    std::vector<field_error> errors;
 
     auto name_it = form_data.find("name");
     std::string name_value = (name_it != form_data.end()) ? name_it->second : "";
     if (name_value.empty()) {
-        result.errors.push_back({"name", "required, but missing or empty"});
+        errors.push_back({"name", "required, but missing or empty"});
     }
 
     auto message_it = form_data.find("message");
     std::string message_value = (message_it != form_data.end()) ? message_it->second : "";
     if (message_value.empty()) {
-        result.errors.push_back({"message", "required, but missing or empty"});
+        errors.push_back({"message", "required, but missing or empty"});
     }
 
     std::string location{};
@@ -338,11 +344,15 @@ inline form_validation_result validate_form_fields(
         location = location_it->second;
     }
 
-    result.fields["name"] = truncate_field(name_value, max_author_length);
-    result.fields["location"] = truncate_field(location, max_location_length);
-    result.fields["message"] = truncate_field(message_value, max_message_length);
-    result.ok = result.errors.empty();
-    return result;
+    std::map<std::string, std::string> fields;
+    fields["name"] = truncate_field(name_value, max_author_length);
+    fields["location"] = truncate_field(location, max_location_length);
+    fields["message"] = truncate_field(message_value, max_message_length);
+
+    if (!errors.empty()) {
+        return validation_errors{std::move(errors), std::move(fields)};
+    }
+    return validated_fields{std::move(fields)};
 }
 
 // Reads exactly content_length bytes from the given input stream.
@@ -423,7 +433,7 @@ inline std::string generate_cgi_error(HttpStatus code,
 // error reason.  The page uses only basic semantic HTML elements.
 // |return_url| controls the "Return to site" link destination.
 inline std::string generate_cgi_form_error(
-        const form_validation_result &result,
+        const validation_errors &result,
         const std::string &return_url = "/") {
 
     // Build a set of field names that have errors, for quick lookup.

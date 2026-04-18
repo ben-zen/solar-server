@@ -542,11 +542,11 @@ TEST_CASE("validate_form_fields accepts valid form data") {
         {"name", "Alice"}, {"location", "Seattle"}, {"message", "Hello!"}
     };
     auto result = validate_form_fields(form);
-    REQUIRE(result.ok);
-    CHECK(result.fields.at("name") == "Alice");
-    CHECK(result.fields.at("location") == "Seattle");
-    CHECK(result.fields.at("message") == "Hello!");
-    CHECK(result.errors.empty());
+    REQUIRE(std::holds_alternative<validated_fields>(result));
+    auto &fields = std::get<validated_fields>(result);
+    CHECK(fields.at("name") == "Alice");
+    CHECK(fields.at("location") == "Seattle");
+    CHECK(fields.at("message") == "Hello!");
 }
 
 TEST_CASE("validate_form_fields rejects missing name") {
@@ -554,9 +554,10 @@ TEST_CASE("validate_form_fields rejects missing name") {
         {"location", "Seattle"}, {"message", "Hello!"}
     };
     auto result = validate_form_fields(form);
-    CHECK_FALSE(result.ok);
-    REQUIRE(result.errors.size() == 1);
-    CHECK(result.errors[0].field == "name");
+    REQUIRE(std::holds_alternative<validation_errors>(result));
+    auto &errs = std::get<validation_errors>(result);
+    REQUIRE(errs.errors.size() == 1);
+    CHECK(errs.errors[0].field == "name");
 }
 
 TEST_CASE("validate_form_fields rejects missing message") {
@@ -564,9 +565,10 @@ TEST_CASE("validate_form_fields rejects missing message") {
         {"name", "Alice"}, {"location", "Seattle"}
     };
     auto result = validate_form_fields(form);
-    CHECK_FALSE(result.ok);
-    REQUIRE(result.errors.size() == 1);
-    CHECK(result.errors[0].field == "message");
+    REQUIRE(std::holds_alternative<validation_errors>(result));
+    auto &errs = std::get<validation_errors>(result);
+    REQUIRE(errs.errors.size() == 1);
+    CHECK(errs.errors[0].field == "message");
 }
 
 TEST_CASE("validate_form_fields allows missing location") {
@@ -574,8 +576,8 @@ TEST_CASE("validate_form_fields allows missing location") {
         {"name", "Alice"}, {"message", "Hello!"}
     };
     auto result = validate_form_fields(form);
-    REQUIRE(result.ok);
-    CHECK(result.fields.at("location") == "");
+    REQUIRE(std::holds_alternative<validated_fields>(result));
+    CHECK(std::get<validated_fields>(result).at("location") == "");
 }
 
 TEST_CASE("validate_form_fields rejects empty name") {
@@ -583,9 +585,10 @@ TEST_CASE("validate_form_fields rejects empty name") {
         {"name", ""}, {"location", "here"}, {"message", "Hello!"}
     };
     auto result = validate_form_fields(form);
-    CHECK_FALSE(result.ok);
-    REQUIRE(result.errors.size() == 1);
-    CHECK(result.errors[0].field == "name");
+    REQUIRE(std::holds_alternative<validation_errors>(result));
+    auto &errs = std::get<validation_errors>(result);
+    REQUIRE(errs.errors.size() == 1);
+    CHECK(errs.errors[0].field == "name");
 }
 
 TEST_CASE("validate_form_fields rejects empty message") {
@@ -593,9 +596,10 @@ TEST_CASE("validate_form_fields rejects empty message") {
         {"name", "Alice"}, {"location", "here"}, {"message", ""}
     };
     auto result = validate_form_fields(form);
-    CHECK_FALSE(result.ok);
-    REQUIRE(result.errors.size() == 1);
-    CHECK(result.errors[0].field == "message");
+    REQUIRE(std::holds_alternative<validation_errors>(result));
+    auto &errs = std::get<validation_errors>(result);
+    REQUIRE(errs.errors.size() == 1);
+    CHECK(errs.errors[0].field == "message");
 }
 
 TEST_CASE("validate_form_fields reports both name and message errors") {
@@ -603,10 +607,11 @@ TEST_CASE("validate_form_fields reports both name and message errors") {
         {"location", "here"}
     };
     auto result = validate_form_fields(form);
-    CHECK_FALSE(result.ok);
-    REQUIRE(result.errors.size() == 2);
-    CHECK(result.errors[0].field == "name");
-    CHECK(result.errors[1].field == "message");
+    REQUIRE(std::holds_alternative<validation_errors>(result));
+    auto &errs = std::get<validation_errors>(result);
+    REQUIRE(errs.errors.size() == 2);
+    CHECK(errs.errors[0].field == "name");
+    CHECK(errs.errors[1].field == "message");
 }
 
 TEST_CASE("validate_form_fields truncates long fields") {
@@ -616,10 +621,11 @@ TEST_CASE("validate_form_fields truncates long fields") {
         {"message", std::string(3000, 'Z')}
     };
     auto result = validate_form_fields(form);
-    REQUIRE(result.ok);
-    CHECK(result.fields.at("name").size() == max_author_length);
-    CHECK(result.fields.at("location").size() == max_location_length);
-    CHECK(result.fields.at("message").size() == max_message_length);
+    REQUIRE(std::holds_alternative<validated_fields>(result));
+    auto &fields = std::get<validated_fields>(result);
+    CHECK(fields.at("name").size() == max_author_length);
+    CHECK(fields.at("location").size() == max_location_length);
+    CHECK(fields.at("message").size() == max_message_length);
 }
 
 // ---------------------------------------------------------------------------
@@ -752,8 +758,7 @@ TEST_CASE("generate_cgi_error with 3xx code returns 500") {
 // ---------------------------------------------------------------------------
 
 TEST_CASE("generate_cgi_form_error produces 400 response") {
-    form_validation_result vr;
-    vr.ok = false;
+    validation_errors vr;
     vr.errors = {{"name", "required, but missing or empty"}};
     vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
     auto response = generate_cgi_form_error(vr);
@@ -762,8 +767,7 @@ TEST_CASE("generate_cgi_form_error produces 400 response") {
 }
 
 TEST_CASE("generate_cgi_form_error lists failing fields in error summary") {
-    form_validation_result vr;
-    vr.ok = false;
+    validation_errors vr;
     vr.errors = {{"name", "required, but missing or empty"},
                  {"message", "required, but missing or empty"}};
     vr.fields = {{"name", ""}, {"location", "here"}, {"message", ""}};
@@ -773,8 +777,7 @@ TEST_CASE("generate_cgi_form_error lists failing fields in error summary") {
 }
 
 TEST_CASE("generate_cgi_form_error shows submitted values") {
-    form_validation_result vr;
-    vr.ok = false;
+    validation_errors vr;
     vr.errors = {{"message", "required, but missing or empty"}};
     vr.fields = {{"name", "Alice"}, {"location", "Seattle"}, {"message", ""}};
     auto response = generate_cgi_form_error(vr);
@@ -784,8 +787,7 @@ TEST_CASE("generate_cgi_form_error shows submitted values") {
 }
 
 TEST_CASE("generate_cgi_form_error flags the invalid field with (error)") {
-    form_validation_result vr;
-    vr.ok = false;
+    validation_errors vr;
     vr.errors = {{"name", "required, but missing or empty"}};
     vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
     auto response = generate_cgi_form_error(vr);
@@ -796,8 +798,7 @@ TEST_CASE("generate_cgi_form_error flags the invalid field with (error)") {
 }
 
 TEST_CASE("generate_cgi_form_error escapes HTML in field values") {
-    form_validation_result vr;
-    vr.ok = false;
+    validation_errors vr;
     vr.errors = {{"message", "required, but missing or empty"}};
     vr.fields = {{"name", "<script>alert(1)</script>"}, {"location", ""}, {"message", ""}};
     auto response = generate_cgi_form_error(vr);
@@ -806,8 +807,7 @@ TEST_CASE("generate_cgi_form_error escapes HTML in field values") {
 }
 
 TEST_CASE("generate_cgi_form_error uses semantic HTML elements") {
-    form_validation_result vr;
-    vr.ok = false;
+    validation_errors vr;
     vr.errors = {{"name", "required, but missing or empty"}};
     vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
     auto response = generate_cgi_form_error(vr);
@@ -822,8 +822,7 @@ TEST_CASE("generate_cgi_form_error uses semantic HTML elements") {
 }
 
 TEST_CASE("generate_cgi_form_error uses custom return URL") {
-    form_validation_result vr;
-    vr.ok = false;
+    validation_errors vr;
     vr.errors = {{"name", "required, but missing or empty"}};
     vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
     auto response = generate_cgi_form_error(vr, "/guestbook");
@@ -832,8 +831,7 @@ TEST_CASE("generate_cgi_form_error uses custom return URL") {
 }
 
 TEST_CASE("generate_cgi_form_error escapes return URL") {
-    form_validation_result vr;
-    vr.ok = false;
+    validation_errors vr;
     vr.errors = {{"name", "required, but missing or empty"}};
     vr.fields = {{"name", ""}, {"location", ""}, {"message", "Hi"}};
     auto response = generate_cgi_form_error(vr, "/page?a=1&b=2");

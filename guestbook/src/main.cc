@@ -102,13 +102,13 @@ int main(int argc, char **argv) {
         }
 
         auto validated = validate_form_fields(form_data);
-        if (!validated.ok) {
+        if (auto *errs = std::get_if<validation_errors>(&validated)) {
             err << fmt::format("CGI error: form validation failed (missing or empty name/message)\n");
-            std::cout << generate_cgi_form_error(validated, redirect_url);
+            std::cout << generate_cgi_form_error(*errs, redirect_url);
             return 1;
         }
 
-        auto &fields = validated.fields;
+        auto &fields = std::get<validated_fields>(validated);
         auto timestamp = std::chrono::system_clock::now();
         write_to_logbook(fields["name"], fields["location"], fields["message"], env_vars, timestamp);
 
@@ -158,12 +158,12 @@ int main(int argc, char **argv) {
 
     auto form_data = unpack_form_data(content);
     auto validated = validate_form_fields(form_data);
-    if (!validated.ok) {
+    if (std::holds_alternative<validation_errors>(validated)) {
         err << fmt::format("Invalid form data: name and message are required.\n");
         return 1;
     }
 
-    auto &fields = validated.fields;
+    auto &fields = std::get<validated_fields>(validated);
     auto timestamp = std::chrono::system_clock::now();
     write_to_logbook(fields["name"], fields["location"], fields["message"], env_vars, timestamp);
     format_entry(std::cout, fields["name"], fields["location"], fields["message"], timestamp);
