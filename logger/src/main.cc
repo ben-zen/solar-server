@@ -18,11 +18,13 @@
 // NWS station identifiers are alphanumeric (e.g., KBFI, K0S9).
 // Grid office codes are alphabetic (e.g., SEW, LWX).
 static bool is_valid_station(const std::string &s) {
-    return !s.empty() && std::all_of(s.begin(), s.end(), ::isalnum);
+    return !s.empty() && std::all_of(s.begin(), s.end(),
+        [](unsigned char c) { return std::isalnum(c); });
 }
 
 static bool is_valid_grid_office(const std::string &s) {
-    return !s.empty() && std::all_of(s.begin(), s.end(), ::isalpha);
+    return !s.empty() && std::all_of(s.begin(), s.end(),
+        [](unsigned char c) { return std::isalpha(c); });
 }
 
 int main(int argc, char **argv)

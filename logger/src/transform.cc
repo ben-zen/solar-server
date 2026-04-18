@@ -83,7 +83,7 @@ int report_to_css(const status_report &report, std::ostream &out) {
 }
 
 int report_to_css(const status_report &report, const std::filesystem::path &destination) {
-    std::fstream out_file{destination, std::ios::out | std::ios::trunc};
+    std::ofstream out_file{destination, std::ios::out | std::ios::trunc};
     if (!out_file.is_open()) {
         std::cerr << fmt::format("Error: could not open output file: {}\n", destination.string());
         return 1;
