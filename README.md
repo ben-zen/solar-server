@@ -37,7 +37,7 @@ A C++20 library for communicating with Renogy solar charge controllers over
 Modbus RTU (RS232). Reads battery state-of-charge, solar panel output, load
 data, and lifetime statistics. The register map and parsing logic are derived
 from [sophienyaa/NodeRenogy](https://github.com/sophienyaa/NodeRenogy) by
-Mick Wheeler (MIT licensed).
+Sophie Wheeler (MIT licensed).
 
 See [`renogy/README.md`](renogy/README.md) for build instructions, supported
 registers, and hardware wiring notes.

@@ -10,7 +10,7 @@ data from Renogy charge controllers such as the Wanderer and Rover series.
 The Modbus register map, data parsing logic, and protocol knowledge in this
 library are derived from
 [**sophienyaa/NodeRenogy**](https://github.com/sophienyaa/NodeRenogy)
-by Mick Wheeler, licensed under the MIT License.  The original project
+by Sophie Wheeler, licensed under the MIT License.  The original project
 provides the same functionality in Node.js, publishing data to MQTT for use
 with Home Assistant and similar systems.
 
