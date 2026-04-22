@@ -151,5 +151,10 @@ ssize_t serial_port::read(uint8_t *buffer, size_t max_length, int timeout_ms) {
     return -1;
   }
 
-  return ::read(m_fd, buffer, max_length);
+  ssize_t n;
+  do {
+    n = ::read(m_fd, buffer, max_length);
+  } while (n < 0 && errno == EINTR);
+
+  return n;
 }
