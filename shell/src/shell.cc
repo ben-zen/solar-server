@@ -34,11 +34,11 @@ void shell::run() {
         }
 
         // Push the menu towards the bottom of the screen.
-        // Banner lines: 2 borders + 1 title + info lines.
+        // Banner lines: 2 borders + 1 title + info lines = 3 + info.
         // Menu lines: 1 blank + items + 1 blank.
         // Prompt line: 1.
         if (config_.height > 0) {
-            int banner_lines = 3 + static_cast<int>(config_.banner_info.size());
+            int banner_lines = 3 + static_cast<int>(config_.banner_info.size()); // 2 borders + 1 title
             int menu_lines = static_cast<int>(commands_.size()) + 2;
             int prompt_lines = 1;
             int used = banner_lines + menu_lines + prompt_lines;
