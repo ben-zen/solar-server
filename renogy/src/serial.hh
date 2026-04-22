@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <sys/types.h>
 
 /// RAII wrapper around a POSIX serial port configured for Modbus RTU
 /// communication (8N1, no flow control).

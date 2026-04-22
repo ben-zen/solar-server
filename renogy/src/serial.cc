@@ -10,7 +10,8 @@
 #include <unistd.h>
 #include <utility>
 
-// Map a numeric baud rate to the POSIX speed constant.
+// Map a numeric baud rate to the POSIX speed constant.  Returns 0 for
+// unsupported baud rates so that open() can fail explicitly.
 static speed_t baud_to_speed(int baud) {
   switch (baud) {
   case 2400:
@@ -28,7 +29,7 @@ static speed_t baud_to_speed(int baud) {
   case 115200:
     return B115200;
   default:
-    return B9600;
+    return 0;
   }
 }
 
@@ -82,6 +83,10 @@ bool serial_port::open(const std::string &device, int baud_rate) {
   tio.c_cc[VTIME] = 10; // tenths of a second
 
   speed_t speed = baud_to_speed(baud_rate);
+  if (speed == 0) {
+    close();
+    return false;
+  }
   cfsetispeed(&tio, speed);
   cfsetospeed(&tio, speed);
 
@@ -107,7 +112,18 @@ ssize_t serial_port::write(const uint8_t *data, size_t length) {
   if (m_fd < 0) {
     return -1;
   }
-  return ::write(m_fd, data, length);
+  size_t total = 0;
+  while (total < length) {
+    ssize_t n = ::write(m_fd, data + total, length - total);
+    if (n < 0) {
+      if (errno == EINTR) {
+        continue;
+      }
+      return -1;
+    }
+    total += static_cast<size_t>(n);
+  }
+  return static_cast<ssize_t>(total);
 }
 
 ssize_t serial_port::read(uint8_t *buffer, size_t max_length, int timeout_ms) {
@@ -119,10 +135,20 @@ ssize_t serial_port::read(uint8_t *buffer, size_t max_length, int timeout_ms) {
   pfd.fd = m_fd;
   pfd.events = POLLIN;
 
-  int ret = poll(&pfd, 1, timeout_ms);
-  if (ret <= 0) {
-    // 0 = timeout, -1 = error
-    return ret;
+  int ret;
+  do {
+    ret = poll(&pfd, 1, timeout_ms);
+  } while (ret < 0 && errno == EINTR);
+
+  if (ret < 0) {
+    return -1;
+  }
+  if (ret == 0) {
+    return 0; // timeout
+  }
+
+  if (pfd.revents & (POLLERR | POLLHUP | POLLNVAL)) {
+    return -1;
   }
 
   return ::read(m_fd, buffer, max_length);

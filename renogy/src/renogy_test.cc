@@ -253,6 +253,13 @@ TEST_CASE("parse_controller_data") {
     CHECK_FALSE(result.has_value());
   }
 
+  SUBCASE("too many registers returns nullopt") {
+    auto regs = make_sample_data_registers();
+    regs.push_back(0);
+    auto result = parse_controller_data(regs);
+    CHECK_FALSE(result.has_value());
+  }
+
   SUBCASE("32-bit register combination") {
     auto regs = make_sample_data_registers();
     // Set total charge Ah to 0x00010002 = 65538
@@ -358,6 +365,13 @@ TEST_CASE("parse_controller_info") {
 
   SUBCASE("too few registers returns nullopt") {
     std::vector<uint16_t> regs(5, 0);
+    auto result = parse_controller_info(regs);
+    CHECK_FALSE(result.has_value());
+  }
+
+  SUBCASE("too many registers returns nullopt") {
+    auto regs = make_sample_info_registers();
+    regs.push_back(0);
     auto result = parse_controller_info(regs);
     CHECK_FALSE(result.has_value());
   }

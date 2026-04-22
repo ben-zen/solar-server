@@ -8,6 +8,7 @@
 #include "renogy.hh"
 
 #include <algorithm>
+#include <chrono>
 #include <cstring>
 #include <thread>
 
@@ -43,7 +44,7 @@ static uint8_t mirror_bits(uint8_t n) {
 
 std::optional<controller_data>
 parse_controller_data(const std::vector<uint16_t> &regs) {
-  if (regs.size() < renogy_data_num_registers) {
+  if (regs.size() != renogy_data_num_registers) {
     return std::nullopt;
   }
 
@@ -151,7 +152,7 @@ parse_controller_data(const std::vector<uint16_t> &regs) {
 
 std::optional<controller_info>
 parse_controller_info(const std::vector<uint16_t> &regs) {
-  if (regs.size() < renogy_info_num_registers) {
+  if (regs.size() != renogy_info_num_registers) {
     return std::nullopt;
   }
 

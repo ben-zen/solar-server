@@ -6,6 +6,8 @@ renogy_includes = [ '../../include_ext' ]
 renogy_deps = [ fmt_dep ]
 renogy_files = ['modbus.cc', 'renogy.cc', 'serial.cc']
 
-renogy_test_files = ['renogy_test.cc', 'modbus.cc', 'renogy.cc', 'serial.cc']
-renogy_test = executable('renogy_test', renogy_test_files, dependencies: renogy_deps, include_directories: renogy_includes)
+renogy_lib = static_library('renogy', renogy_files, dependencies: renogy_deps, include_directories: renogy_includes)
+
+renogy_test_files = ['renogy_test.cc']
+renogy_test = executable('renogy_test', renogy_test_files, dependencies: renogy_deps, include_directories: renogy_includes, link_with: renogy_lib)
 test('renogy_tests', renogy_test)

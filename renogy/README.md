@@ -25,6 +25,8 @@ with Home Assistant and similar systems.
 
 ## Building
 
+The Meson build produces a static library (`librenogy.a`) and a test binary:
+
 ```sh
 CC=clang CXX=clang++ meson setup build src
 meson compile -C build
