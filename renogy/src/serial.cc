@@ -76,8 +76,8 @@ bool serial_port::open(const std::string &device, int baud_rate) {
   tio.c_oflag = 0;
   tio.c_lflag = 0;
 
-  // VMIN/VTIME: return as soon as at least 1 byte arrives, with a 1-second
-  // inter-character timeout.
+  // VMIN=0, VTIME=10: pure timer mode — read() waits up to 1 second for
+  // any data, returning whatever arrived (possibly zero bytes on timeout).
   tio.c_cc[VMIN] = 0;
   tio.c_cc[VTIME] = 10; // tenths of a second
 
