@@ -115,6 +115,9 @@ struct fmt::formatter<std::vector<daytime_forecast>> : fmt::formatter<std::strin
   }
 };
 
+std::string make_observation_url(const nws_location &location);
+std::string make_forecast_url(const nws_location &location);
+
 class weather_loader {
 public:
   weather_loader(curl_handle &curl, const nws_location &location);

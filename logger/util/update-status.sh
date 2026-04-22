@@ -15,5 +15,5 @@ mkdir -p /temp/update-status && cd /temp/update-status || exit 1
     --grid-x "$NWS_GRID_X" \
     --grid-y "$NWS_GRID_Y" || exit 1
 
-cp ./status.css /www/solar-site/css/status.css
+cp ./status.css /www/solar-site/css/status.css || exit 1
 echo "Updated status.css"

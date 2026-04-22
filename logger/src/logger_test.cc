@@ -25,8 +25,6 @@ temperature read_temperature_from_json(nlohmann::json &data);
 overall_condition condition_from_string(const std::string &str);
 std::vector<daytime_forecast> load_forecast(const std::string &forecast_response);
 std::string convert_condition_to_filename(overall_condition condition);
-std::string make_observation_url(const nws_location &location);
-std::string make_forecast_url(const nws_location &location);
 
 // ---------------------------------------------------------------------------
 // Sample NWS API forecast responses for three locations.
@@ -964,7 +962,7 @@ TEST_CASE("report_to_css writes to a valid file path") {
     std::filesystem::remove(path);
 }
 
-TEST_CASE("report_to_css returns error for unwriteable path") {
+TEST_CASE("report_to_css returns error for unwritable path") {
     status_report report{};
     report.current_weather = {"now", overall_condition::clear, {70.0f, temperature_unit::fahrenheit}};
     report.upcoming_days = {
@@ -975,7 +973,12 @@ TEST_CASE("report_to_css returns error for unwriteable path") {
     report.battery_voltage = voltage<float>(12.0f);
     report.is_charging = false;
 
-    std::filesystem::path bad_path{"/nonexistent/dir/output.css"};
+    // Create a unique directory under temp that we guarantee doesn't exist.
+    auto bad_path = std::filesystem::temp_directory_path()
+                  / "logger_test_no_such_dir_8f3a2c"
+                  / "output.css";
+    // Ensure the parent directory truly doesn't exist.
+    std::filesystem::remove_all(bad_path.parent_path());
     int result = report_to_css(report, bad_path);
     CHECK(result != 0);
 }

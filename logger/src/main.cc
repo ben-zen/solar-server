@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <fmt/format.h>
 #include <fstream>
