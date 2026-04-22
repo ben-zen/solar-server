@@ -4,6 +4,7 @@
 #include "command.hh"
 #include "config.hh"
 #include "shell.hh"
+#include "signal_state.hh"
 #include "text_renderer.hh"
 
 #include <cstdlib>
@@ -12,6 +13,7 @@
 #include <memory>
 #include <string>
 
+#include <csignal>
 #include <sys/ioctl.h>
 #include <unistd.h>
 
@@ -30,6 +32,15 @@ static int detect_terminal_width() {
     return 0;
 }
 
+// Query the terminal height.  Returns 0 if the height cannot be determined.
+static int detect_terminal_height() {
+    struct winsize ws{};
+    if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0) {
+        return ws.ws_row;
+    }
+    return 0;
+}
+
 // Resolve the effective terminal width.  Priority:
 //   1. Explicit CLI/config value (> 0)
 //   2. Auto-detected terminal width
@@ -38,6 +49,21 @@ static int resolve_width(int configured) {
     if (configured > 0) return configured;
     int detected = detect_terminal_width();
     return detected > 0 ? detected : 72;
+}
+
+// Resolve the effective terminal height.  Priority:
+//   1. Explicit CLI/config value (> 0)
+//   2. Auto-detected terminal height
+//   3. Fallback default (24)
+static int resolve_height(int configured) {
+    if (configured > 0) return configured;
+    int detected = detect_terminal_height();
+    return detected > 0 ? detected : 24;
+}
+
+// SIGINT handler — sets a global flag so prompt() can detect the interrupt.
+static void sigint_handler(int /*signo*/) {
+    g_sigint_received = 1;
 }
 
 // Configure the argument parser with all supported flags.
@@ -73,6 +99,11 @@ static void configure_arg_parser(argparse::ArgumentParser &parser) {
 
     parser.add_argument("--width")
         .help("Terminal width for formatting (0 = auto-detect)")
+        .default_value(0)
+        .scan<'i', int>();
+
+    parser.add_argument("--height")
+        .help("Terminal height for layout (0 = auto-detect)")
         .default_value(0)
         .scan<'i', int>();
 
@@ -113,6 +144,11 @@ static void apply_cli_overrides(shell_config &config,
         auto val = parser.get<int>("--width");
         if (val >= 0) config.width = val;
     }
+
+    if (parser.is_used("--height")) {
+        auto val = parser.get<int>("--height");
+        if (val >= 0) config.height = val;
+    }
 }
 
 int main(int argc, char **argv) {
@@ -142,8 +178,18 @@ int main(int argc, char **argv) {
     apply_cli_overrides(config, arg_parser);
 
     int width = resolve_width(config.width);
+    int height = resolve_height(config.height);
+    config.height = height;
 
-    auto rend = std::make_unique<text_renderer>(std::cout, std::cin, width);
+    // Install SIGINT handler so Ctrl-C is handled gracefully.
+    struct sigaction sa{};
+    sa.sa_handler = sigint_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;  // Do not set SA_RESTART so that read() is interrupted.
+    sigaction(SIGINT, &sa, nullptr);
+
+    auto rend = std::make_unique<text_renderer>(std::cout, std::cin, width,
+                                                height);
 
     shell sh{std::move(rend), config};
     register_default_commands(sh, config);

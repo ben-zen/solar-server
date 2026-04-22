@@ -18,7 +18,8 @@ class text_renderer : public renderer {
 public:
     explicit text_renderer(std::ostream &out = std::cout,
                            std::istream &in  = std::cin,
-                           int width = 72);
+                           int width = 72,
+                           int height = 24);
 
     void clear_screen() override;
     void show_banner(const std::string &title,
@@ -37,8 +38,15 @@ public:
     // signed→unsigned conversion when constructing separator strings.
     void set_width(int w) { if (w >= 1) width_ = w; }
 
+    // Update the terminal height.  Values below 1 are ignored.
+    void set_height(int h) { if (h >= 1) height_ = h; }
+
+    // Return the current terminal height.
+    int height() const { return height_; }
+
 private:
     std::ostream &out_;
     std::istream &in_;
     int width_;
+    int height_;
 };
