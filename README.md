@@ -31,6 +31,17 @@ appended to a logbook file.
 
 See [`guestbook/README.md`](guestbook/README.md) for details.
 
+### Renogy Library (`renogy/`)
+
+A C++20 library for communicating with Renogy solar charge controllers over
+Modbus RTU (RS232). Reads battery state-of-charge, solar panel output, load
+data, and lifetime statistics. The register map and parsing logic are derived
+from [sophienyaa/NodeRenogy](https://github.com/sophienyaa/NodeRenogy) by
+Mick Wheeler (MIT licensed).
+
+See [`renogy/README.md`](renogy/README.md) for build instructions, supported
+registers, and hardware wiring notes.
+
 ### Vendored Headers (`include_ext/`)
 
 Header-only libraries shared by the C++ components:
@@ -51,6 +62,7 @@ Or build individual components:
 ```sh
 just logger build    # Logger
 just guestbook build # Guestbook
+just renogy build    # Renogy library
 just website build   # Website (Hugo)
 ```
 
@@ -72,6 +84,11 @@ meson compile -C build
 
 # Guestbook
 cd guestbook
+CC=clang CXX=clang++ meson setup build src
+meson compile -C build
+
+# Renogy
+cd renogy
 CC=clang CXX=clang++ meson setup build src
 meson compile -C build
 

@@ -4,6 +4,7 @@ just := just_executable()
 
 mod logger
 mod guestbook
+mod renogy
 mod website
 mod bbs 'shell'
 
@@ -14,18 +15,21 @@ default: build
 build:
     {{ just }} logger build
     {{ just }} guestbook build
+    {{ just }} renogy build
     {{ just }} website build
     {{ just }} bbs build
 
-# Run guestbook and shell tests
+# Run guestbook, renogy, and shell tests
 test:
     {{ just }} guestbook test
+    {{ just }} renogy test
     {{ just }} bbs test
 
 # Remove all build artifacts
 clean:
     {{ just }} logger clean
     {{ just }} guestbook clean
+    {{ just }} renogy clean
     {{ just }} website clean
     {{ just }} bbs clean
 
