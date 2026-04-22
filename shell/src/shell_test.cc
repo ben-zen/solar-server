@@ -9,6 +9,7 @@
 #include "guestbook_io.hh"
 #include "renderer.hh"
 #include "shell.hh"
+#include "signal_state.hh"
 #include "text_renderer.hh"
 
 #include <chrono>
@@ -663,4 +664,135 @@ TEST_CASE("text_renderer::set_width ignores zero and negative values") {
     r.show_separator();
     auto output3 = out.str();
     CHECK(output3.find(std::string(20, '-')) != std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// text_renderer: set_height ignores invalid values
+// ---------------------------------------------------------------------------
+
+TEST_CASE("text_renderer::set_height ignores zero and negative values") {
+    std::ostringstream out;
+    std::istringstream in;
+    text_renderer r{out, in, 40, 24};
+
+    CHECK(r.height() == 24);
+
+    r.set_height(0);
+    CHECK(r.height() == 24);
+
+    r.set_height(-5);
+    CHECK(r.height() == 24);
+
+    // Valid update should work.
+    r.set_height(30);
+    CHECK(r.height() == 30);
+}
+
+// ---------------------------------------------------------------------------
+// text_renderer: prompt returns prompt_interrupt when SIGINT flag is set
+// ---------------------------------------------------------------------------
+
+TEST_CASE("text_renderer::prompt returns prompt_interrupt on SIGINT flag (stream ok)") {
+    std::ostringstream out;
+    std::istringstream in{"some input\n"};
+    text_renderer r{out, in, 40};
+
+    // Simulate SIGINT by setting the global flag.
+    g_sigint_received = 1;
+
+    auto result = r.prompt(">");
+    CHECK(std::holds_alternative<prompt_interrupt>(result));
+
+    // Flag should be cleared after handling.
+    CHECK(g_sigint_received == 0);
+}
+
+TEST_CASE("text_renderer::prompt returns prompt_interrupt on SIGINT flag (stream eof)") {
+    std::ostringstream out;
+    std::istringstream in{""};
+    text_renderer r{out, in, 40};
+
+    // Simulate SIGINT by setting the global flag.
+    g_sigint_received = 1;
+
+    auto result = r.prompt(">");
+    CHECK(std::holds_alternative<prompt_interrupt>(result));
+
+    // Flag should be cleared after handling.
+    CHECK(g_sigint_received == 0);
+}
+
+// ---------------------------------------------------------------------------
+// shell: exits cleanly on SIGINT at main menu
+// ---------------------------------------------------------------------------
+
+TEST_CASE("shell exits cleanly on SIGINT at main menu") {
+    std::ostringstream out;
+    std::istringstream in{"ignored\n"};
+    auto rend = std::make_unique<text_renderer>(out, in, 40);
+
+    shell_config config{.banner_title = "Test"};
+
+    shell sh{std::move(rend), config};
+    sh.add_command(make_quit_command(sh.running_flag()));
+
+    // Simulate SIGINT before the first prompt.
+    g_sigint_received = 1;
+
+    sh.run();
+
+    CHECK_FALSE(sh.running_flag());
+    // Ensure the flag was consumed.
+    CHECK(g_sigint_received == 0);
+}
+
+// ---------------------------------------------------------------------------
+// shell: clears screen and redraws banner on each loop iteration
+// ---------------------------------------------------------------------------
+
+TEST_CASE("shell clears screen and shows banner on each loop iteration") {
+    std::ostringstream out;
+    // Two iterations: unknown command "x", then quit.
+    std::istringstream in{"x\nq\n"};
+    auto rend = std::make_unique<text_renderer>(out, in, 40);
+
+    shell_config config{
+        .banner_title = "Redraw Test",
+        .banner_info  = {"info"},
+    };
+
+    shell sh{std::move(rend), config};
+    sh.add_command(make_quit_command(sh.running_flag()));
+
+    sh.run();
+
+    auto output = out.str();
+
+    // The clear-screen escape should appear at least twice (once per iteration).
+    auto first_clear = output.find("\033[2J\033[H");
+    REQUIRE(first_clear != std::string::npos);
+    auto second_clear = output.find("\033[2J\033[H", first_clear + 1);
+    CHECK(second_clear != std::string::npos);
+
+    // Banner title should appear at least twice.
+    auto first_title = output.find("Redraw Test");
+    REQUIRE(first_title != std::string::npos);
+    auto second_title = output.find("Redraw Test", first_title + 1);
+    CHECK(second_title != std::string::npos);
+}
+
+// ---------------------------------------------------------------------------
+// config: height key
+// ---------------------------------------------------------------------------
+
+TEST_CASE("parse_config_stream parses height key") {
+    std::istringstream input{"height = 40\n"};
+    auto config = parse_config_stream(input);
+    CHECK(config.height == 40);
+}
+
+TEST_CASE("parse_config_stream ignores negative height") {
+    std::istringstream input{"height = -10\n"};
+    auto config = parse_config_stream(input);
+    CHECK(config.height == 0);
 }

@@ -23,19 +23,39 @@ void shell::add_command(command cmd) {
 }
 
 void shell::run() {
-    renderer_->clear_screen();
-    renderer_->show_banner(config_.banner_title, config_.banner_info);
-
     while (running_) {
+        renderer_->clear_screen();
+        renderer_->show_banner(config_.banner_title, config_.banner_info);
+
         // Build the menu from the current command list.
         std::vector<std::pair<std::string, std::string>> menu_items;
         for (const auto &cmd : commands_) {
             menu_items.emplace_back(cmd.key, cmd.label);
         }
 
+        // Push the menu towards the bottom of the screen.
+        // Banner lines: 2 borders + 1 title + info lines.
+        // Menu lines: 1 blank + items + 1 blank.
+        // Prompt line: 1.
+        if (config_.height > 0) {
+            int banner_lines = 3 + static_cast<int>(config_.banner_info.size());
+            int menu_lines = static_cast<int>(commands_.size()) + 2;
+            int prompt_lines = 1;
+            int used = banner_lines + menu_lines + prompt_lines;
+            int padding = std::max(0, config_.height - used);
+            for (int i = 0; i < padding; ++i) {
+                renderer_->show_blank_line();
+            }
+        }
+
         renderer_->show_menu(menu_items);
 
         auto result = renderer_->prompt(">");
+
+        if (std::holds_alternative<prompt_interrupt>(result)) {
+            running_ = false;
+            break;
+        }
 
         if (std::holds_alternative<prompt_eof>(result) ||
             std::holds_alternative<prompt_disconnect>(result)) {

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "text_renderer.hh"
+#include "signal_state.hh"
 
 #include <algorithm>
 #include <string>
@@ -97,8 +98,9 @@ static std::string sanitize_terminal_output(const std::string &input) {
     return result;
 }
 
-text_renderer::text_renderer(std::ostream &out, std::istream &in, int width)
-    : out_{out}, in_{in}, width_{width} {}
+text_renderer::text_renderer(std::ostream &out, std::istream &in, int width,
+                             int height)
+    : out_{out}, in_{in}, width_{width}, height_{height} {}
 
 void text_renderer::clear_screen() {
     out_ << ansi::clear;
@@ -145,10 +147,20 @@ prompt_result text_renderer::prompt(const std::string &prompt_text) {
 
     std::string line;
     if (!std::getline(in_, line)) {
+        if (g_sigint_received) {
+            g_sigint_received = 0;
+            in_.clear();
+            out_ << '\n';
+            return prompt_interrupt{};
+        }
         if (in_.bad()) {
             return prompt_disconnect{};
         }
         return prompt_eof{};
+    }
+    if (g_sigint_received) {
+        g_sigint_received = 0;
+        return prompt_interrupt{};
     }
     return line;
 }
