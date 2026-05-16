@@ -8,6 +8,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -124,7 +125,29 @@ struct controller_data {
   // --- Status ---
   uint8_t load_status;              // 0x120  high byte
   charging_state charge_state;      // 0x120  low byte
-  uint32_t fault_codes;             // 0x121–0x122
+  uint32_t fault_codes;             // 0x121–0x122 (raw bitfield)
+
+  // --- Decoded fault flags (from fault_codes) ---
+  // Low 16 bits (register 0x122)
+  bool fault_battery_over_discharge;       // B0
+  bool fault_battery_overvoltage;          // B1
+  bool fault_battery_undervoltage;         // B2
+  bool fault_load_short_circuit;           // B3
+  bool fault_load_overcurrent;             // B4
+  bool fault_controller_temp_high;         // B5
+  bool fault_ambient_temp_high;            // B6
+  bool fault_pv_input_power_high;          // B7
+  bool fault_pv_input_short_circuit;       // B8
+  bool fault_pv_input_overvoltage;         // B9
+  bool fault_solar_reverse_current;        // B10
+  bool fault_solar_working_point_over;     // B11
+  bool fault_solar_panel_reversed;         // B12
+  bool fault_battery_reversed;             // B13
+  bool fault_charge_mos_short;             // B14
+  bool fault_fan_alarm;                    // B15
+  // High 16 bits (register 0x121)
+  bool fault_battery_low_temp;             // B16 (high B0)
+  bool fault_battery_short_circuit;        // B17 (high B1)
 };
 
 template <>
@@ -152,10 +175,26 @@ struct controller_info {
   uint8_t discharge_current_rating; // 0x00B  high byte (A)
   std::string controller_type;      // 0x00B  low byte: 0=Controller, 1=Inverter
   std::string model;                // 0x00C–0x013 (ASCII)
-  std::string software_version;     // 0x014–0x015
-  std::string hardware_version;     // 0x016–0x017
+  uint8_t software_version_major;   // 0x014  low byte
+  uint8_t software_version_minor;   // 0x015  high byte
+  uint8_t software_version_patch;   // 0x015  low byte
+  uint8_t hardware_version_major;   // 0x016  low byte
+  uint8_t hardware_version_minor;   // 0x017  high byte
+  uint8_t hardware_version_patch;   // 0x017  low byte
   uint32_t serial_number;           // 0x018–0x019
   uint8_t modbus_address;           // 0x01A
+
+  /// Format the software version as "Vx.y.z".
+  [[nodiscard]] std::string software_version() const {
+    return fmt::format("V{}.{}.{}", software_version_major,
+                       software_version_minor, software_version_patch);
+  }
+
+  /// Format the hardware version as "Vx.y.z".
+  [[nodiscard]] std::string hardware_version() const {
+    return fmt::format("V{}.{}.{}", hardware_version_major,
+                       hardware_version_minor, hardware_version_patch);
+  }
 };
 
 template <>
@@ -165,7 +204,7 @@ struct fmt::formatter<controller_info> : fmt::formatter<std::string_view> {
     return fmt::format_to(ctx.out(),
                           "{} ({}V/{}A) sw:{} hw:{} sn:{} addr:{}",
                           ci.model, ci.voltage_rating, ci.current_rating,
-                          ci.software_version, ci.hardware_version,
+                          ci.software_version(), ci.hardware_version(),
                           ci.serial_number, ci.modbus_address);
   }
 };
@@ -202,6 +241,9 @@ class renogy_controller {
                                  uint16_t num_registers);
 
 public:
+  /// Callable type used internally for read_registers dispatch.
+  using register_reader_fn =
+      std::function<modbus_response(uint16_t, uint16_t)>;
   /// Construct a controller handle that will talk to \p device at
   /// \p baud_rate (default 9600), with Modbus device address \p device_addr
   /// (default 1).

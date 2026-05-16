@@ -45,6 +45,9 @@ static uint8_t mirror_bits(uint8_t n) {
 std::optional<controller_data>
 parse_controller_data(const std::vector<uint16_t> &regs) {
   if (regs.size() != renogy_data_num_registers) {
+    fmt::print(stderr,
+               "parse_controller_data: expected {} registers, got {}\n",
+               renogy_data_num_registers, regs.size());
     return std::nullopt;
   }
 
@@ -143,6 +146,28 @@ parse_controller_data(const std::vector<uint16_t> &regs) {
   // Registers 0x121–0x122 – Fault codes (32 bits)
   d.fault_codes = combine_registers(regs[33], regs[34]);
 
+  // Decode individual fault flags from the 32-bit fault code.
+  uint16_t lo = regs[34]; // low 16 bits
+  uint16_t hi = regs[33]; // high 16 bits
+  d.fault_battery_over_discharge   = (lo >> 0) & 1;
+  d.fault_battery_overvoltage      = (lo >> 1) & 1;
+  d.fault_battery_undervoltage     = (lo >> 2) & 1;
+  d.fault_load_short_circuit       = (lo >> 3) & 1;
+  d.fault_load_overcurrent         = (lo >> 4) & 1;
+  d.fault_controller_temp_high     = (lo >> 5) & 1;
+  d.fault_ambient_temp_high        = (lo >> 6) & 1;
+  d.fault_pv_input_power_high      = (lo >> 7) & 1;
+  d.fault_pv_input_short_circuit   = (lo >> 8) & 1;
+  d.fault_pv_input_overvoltage     = (lo >> 9) & 1;
+  d.fault_solar_reverse_current    = (lo >> 10) & 1;
+  d.fault_solar_working_point_over = (lo >> 11) & 1;
+  d.fault_solar_panel_reversed     = (lo >> 12) & 1;
+  d.fault_battery_reversed         = (lo >> 13) & 1;
+  d.fault_charge_mos_short         = (lo >> 14) & 1;
+  d.fault_fan_alarm                = (lo >> 15) & 1;
+  d.fault_battery_low_temp         = (hi >> 0) & 1;
+  d.fault_battery_short_circuit    = (hi >> 1) & 1;
+
   return d;
 }
 
@@ -153,6 +178,9 @@ parse_controller_data(const std::vector<uint16_t> &regs) {
 std::optional<controller_info>
 parse_controller_info(const std::vector<uint16_t> &regs) {
   if (regs.size() != renogy_info_num_registers) {
+    fmt::print(stderr,
+               "parse_controller_info: expected {} registers, got {}\n",
+               renogy_info_num_registers, regs.size());
     return std::nullopt;
   }
 
@@ -188,16 +216,14 @@ parse_controller_info(const std::vector<uint16_t> &regs) {
   }
 
   // Registers 0x014–0x015 – Software version (4 bytes → Vx.y.z)
-  uint8_t sw_major = static_cast<uint8_t>(regs[10] & 0xFF);
-  uint8_t sw_minor = static_cast<uint8_t>((regs[11] >> 8) & 0xFF);
-  uint8_t sw_patch = static_cast<uint8_t>(regs[11] & 0xFF);
-  info.software_version = fmt::format("V{}.{}.{}", sw_major, sw_minor, sw_patch);
+  info.software_version_major = static_cast<uint8_t>(regs[10] & 0xFF);
+  info.software_version_minor = static_cast<uint8_t>((regs[11] >> 8) & 0xFF);
+  info.software_version_patch = static_cast<uint8_t>(regs[11] & 0xFF);
 
   // Registers 0x016–0x017 – Hardware version (4 bytes → Vx.y.z)
-  uint8_t hw_major = static_cast<uint8_t>(regs[12] & 0xFF);
-  uint8_t hw_minor = static_cast<uint8_t>((regs[13] >> 8) & 0xFF);
-  uint8_t hw_patch = static_cast<uint8_t>(regs[13] & 0xFF);
-  info.hardware_version = fmt::format("V{}.{}.{}", hw_major, hw_minor, hw_patch);
+  info.hardware_version_major = static_cast<uint8_t>(regs[12] & 0xFF);
+  info.hardware_version_minor = static_cast<uint8_t>((regs[13] >> 8) & 0xFF);
+  info.hardware_version_patch = static_cast<uint8_t>(regs[13] & 0xFF);
 
   // Registers 0x018–0x019 – Serial number (32 bits)
   info.serial_number = combine_registers(regs[14], regs[15]);
@@ -262,20 +288,30 @@ modbus_response renogy_controller::read_registers(uint16_t start_register,
                                         m_device_addr);
 }
 
-std::optional<controller_data> renogy_controller::read_data() {
-  auto resp =
-      read_registers(renogy_data_start_register, renogy_data_num_registers);
+template <typename T>
+static std::optional<T>
+read_and_parse(renogy_controller::register_reader_fn reader,
+               uint16_t start_register, uint16_t num_registers,
+               std::optional<T> (*parse_fn)(const std::vector<uint16_t> &)) {
+  auto resp = reader(start_register, num_registers);
   if (!resp.ok()) {
+    fmt::print(stderr, "read_registers(0x{:04X}, {}): {}\n", start_register,
+               num_registers, resp.error_message);
     return std::nullopt;
   }
-  return parse_controller_data(resp.registers);
+  return parse_fn(resp.registers);
+}
+
+std::optional<controller_data> renogy_controller::read_data() {
+  return read_and_parse<controller_data>(
+      [this](uint16_t s, uint16_t n) { return read_registers(s, n); },
+      renogy_data_start_register, renogy_data_num_registers,
+      parse_controller_data);
 }
 
 std::optional<controller_info> renogy_controller::read_info() {
-  auto resp =
-      read_registers(renogy_info_start_register, renogy_info_num_registers);
-  if (!resp.ok()) {
-    return std::nullopt;
-  }
-  return parse_controller_info(resp.registers);
+  return read_and_parse<controller_info>(
+      [this](uint16_t s, uint16_t n) { return read_registers(s, n); },
+      renogy_info_start_register, renogy_info_num_registers,
+      parse_controller_info);
 }

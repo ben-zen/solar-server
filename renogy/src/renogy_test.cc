@@ -245,6 +245,41 @@ TEST_CASE("parse_controller_data") {
     CHECK(d.load_status == 0);
     CHECK(d.charge_state == charging_state::floating);
     CHECK(d.fault_codes == 0);
+    CHECK_FALSE(d.fault_battery_over_discharge);
+    CHECK_FALSE(d.fault_battery_overvoltage);
+    CHECK_FALSE(d.fault_fan_alarm);
+    CHECK_FALSE(d.fault_battery_low_temp);
+    CHECK_FALSE(d.fault_battery_short_circuit);
+  }
+
+  SUBCASE("fault code bitfield decoding") {
+    auto regs = make_sample_data_registers();
+    // Set some faults: battery overvoltage (B1), PV input overvoltage (B9),
+    // battery low temp protection (high B0)
+    regs[34] = (1 << 1) | (1 << 9); // low word
+    regs[33] = (1 << 0);            // high word
+    auto result = parse_controller_data(regs);
+    REQUIRE(result.has_value());
+    auto &d = *result;
+    CHECK(d.fault_codes == ((1u << 16) | (1u << 9) | (1u << 1)));
+    CHECK_FALSE(d.fault_battery_over_discharge);
+    CHECK(d.fault_battery_overvoltage);
+    CHECK_FALSE(d.fault_battery_undervoltage);
+    CHECK_FALSE(d.fault_load_short_circuit);
+    CHECK_FALSE(d.fault_load_overcurrent);
+    CHECK_FALSE(d.fault_controller_temp_high);
+    CHECK_FALSE(d.fault_ambient_temp_high);
+    CHECK_FALSE(d.fault_pv_input_power_high);
+    CHECK_FALSE(d.fault_pv_input_short_circuit);
+    CHECK(d.fault_pv_input_overvoltage);
+    CHECK_FALSE(d.fault_solar_reverse_current);
+    CHECK_FALSE(d.fault_solar_working_point_over);
+    CHECK_FALSE(d.fault_solar_panel_reversed);
+    CHECK_FALSE(d.fault_battery_reversed);
+    CHECK_FALSE(d.fault_charge_mos_short);
+    CHECK_FALSE(d.fault_fan_alarm);
+    CHECK(d.fault_battery_low_temp);
+    CHECK_FALSE(d.fault_battery_short_circuit);
   }
 
   SUBCASE("too few registers returns nullopt") {
@@ -349,8 +384,14 @@ TEST_CASE("parse_controller_info") {
     CHECK(ci.discharge_current_rating == 20);
     CHECK(ci.controller_type == "Controller");
     CHECK(ci.model == "RNG-CTRL-WND30");
-    CHECK(ci.software_version == "V1.0.4");
-    CHECK(ci.hardware_version == "V1.0.3");
+    CHECK(ci.software_version() == "V1.0.4");
+    CHECK(ci.hardware_version() == "V1.0.3");
+    CHECK(ci.software_version_major == 1);
+    CHECK(ci.software_version_minor == 0);
+    CHECK(ci.software_version_patch == 4);
+    CHECK(ci.hardware_version_major == 1);
+    CHECK(ci.hardware_version_minor == 0);
+    CHECK(ci.hardware_version_patch == 3);
     CHECK(ci.serial_number == 1116960);
     CHECK(ci.modbus_address == 1);
   }
