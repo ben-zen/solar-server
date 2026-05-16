@@ -58,7 +58,22 @@ modbus_response modbus_parse_holding_registers(const uint8_t *data,
   }
 
   // Check for Modbus exception response (function code with high bit set).
+  // Exception frames are 5 bytes: addr(1) + func(1) + exception_code(1) +
+  // CRC(2).
   if (data[1] & 0x80) {
+    if (length >= 5) {
+      uint16_t received_crc =
+          static_cast<uint16_t>(data[length - 2]) |
+          (static_cast<uint16_t>(data[length - 1]) << 8);
+      uint16_t computed_crc = modbus_crc16(data, length - 2);
+      if (received_crc != computed_crc) {
+        result.error_message = fmt::format(
+            "CRC mismatch on exception frame (received 0x{:04X}, computed "
+            "0x{:04X})",
+            received_crc, computed_crc);
+        return result;
+      }
+    }
     uint8_t exception_code = (length >= 3) ? data[2] : 0;
     result.error_message = fmt::format(
         "modbus exception: function 0x{:02X}, code 0x{:02X}", data[1],

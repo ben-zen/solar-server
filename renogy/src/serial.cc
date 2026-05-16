@@ -121,6 +121,9 @@ ssize_t serial_port::write(const uint8_t *data, size_t length) {
       }
       return -1;
     }
+    if (n == 0) {
+      return -1;
+    }
     total += static_cast<size_t>(n);
   }
   return static_cast<ssize_t>(total);

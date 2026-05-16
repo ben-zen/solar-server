@@ -242,12 +242,12 @@ modbus_response renogy_controller::read_registers(uint16_t start_register,
   size_t expected =
       static_cast<size_t>(3) + (static_cast<size_t>(num_registers) * 2) + 2;
 
-  std::vector<uint8_t> buffer(expected + 16); // extra margin
+  std::vector<uint8_t> buffer(expected);
   size_t total_read = 0;
   int retries = 10;
   while (total_read < expected && retries-- > 0) {
     ssize_t n = m_port.read(buffer.data() + total_read,
-                            buffer.size() - total_read, 200);
+                            expected - total_read, 200);
     if (n > 0) {
       total_read += static_cast<size_t>(n);
     } else if (n == 0) {
