@@ -263,21 +263,43 @@ modbus_response renogy_controller::read_registers(uint16_t start_register,
   // character ≈ 1 ms, so a short sleep is sufficient.
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-  // Expected response size: addr(1) + func(1) + count(1) +
-  // data(num_registers * 2) + CRC(2).
-  size_t expected =
-      static_cast<size_t>(3) + (static_cast<size_t>(num_registers) * 2) + 2;
+  // Phase 1: read the 3-byte header (addr, func, byte_count) to determine
+  // the frame type and expected total length.
+  constexpr size_t header_size = 3;
+  uint8_t header[header_size];
+  size_t header_read = 0;
+  int retries = 10;
+  while (header_read < header_size && retries-- > 0) {
+    ssize_t n = m_port.read(header + header_read,
+                            header_size - header_read, 200);
+    if (n > 0) {
+      header_read += static_cast<size_t>(n);
+    } else if (n == 0) {
+      continue;
+    } else {
+      return modbus_response{{}, "serial read error (header)"};
+    }
+  }
+  if (header_read < header_size) {
+    return modbus_response{{}, "timeout reading response header"};
+  }
+
+  // Phase 2: compute the expected total frame length from the header.
+  // Exception frames (func & 0x80) are 5 bytes; normal responses are
+  // 3 + byte_count + 2.
+  size_t expected = modbus_expected_frame_length(header);
 
   std::vector<uint8_t> buffer(expected);
-  size_t total_read = 0;
-  int retries = 10;
+  std::memcpy(buffer.data(), header, header_size);
+
+  size_t total_read = header_size;
+  retries = 10;
   while (total_read < expected && retries-- > 0) {
     ssize_t n = m_port.read(buffer.data() + total_read,
                             expected - total_read, 200);
     if (n > 0) {
       total_read += static_cast<size_t>(n);
     } else if (n == 0) {
-      // Timeout — try once more.
       continue;
     } else {
       return modbus_response{{}, "serial read error"};

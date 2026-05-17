@@ -34,6 +34,13 @@ struct modbus_response {
   [[nodiscard]] bool ok() const { return error_message.empty(); }
 };
 
+/// Determine the expected total frame length from the first 3 bytes of a
+/// Modbus RTU response.  \p header must point to at least 3 bytes
+/// (addr, func, byte_count/exception_code).  Exception frames (func & 0x80)
+/// are always 5 bytes; normal Read Holding Registers responses are
+/// 3 + byte_count + 2.
+size_t modbus_expected_frame_length(const uint8_t *header);
+
 /// Parse a Modbus RTU response to a "Read Holding Registers" request.
 /// \p data / \p length is the raw byte buffer read from the serial port.
 /// \p expected_addr is the device address we expect to see in the frame.

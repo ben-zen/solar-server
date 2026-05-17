@@ -37,6 +37,16 @@ std::vector<uint8_t> modbus_read_holding_registers_request(
   return frame;
 }
 
+size_t modbus_expected_frame_length(const uint8_t *header) {
+  // header must point to at least 3 bytes: addr, func, byte_count.
+  // Exception frames (func & 0x80): fixed 5 bytes total.
+  if (header[1] & 0x80) {
+    return 5;
+  }
+  // Normal response: addr(1) + func(1) + count(1) + data(byte_count) + CRC(2).
+  return static_cast<size_t>(3) + header[2] + 2;
+}
+
 modbus_response modbus_parse_holding_registers(const uint8_t *data,
                                                size_t length,
                                                uint8_t expected_addr) {
@@ -57,27 +67,39 @@ modbus_response modbus_parse_holding_registers(const uint8_t *data,
     return result;
   }
 
-  // Check for Modbus exception response (function code with high bit set).
-  // Exception frames are 5 bytes: addr(1) + func(1) + exception_code(1) +
-  // CRC(2).
-  if (data[1] & 0x80) {
-    if (length >= 5) {
-      uint16_t received_crc =
-          static_cast<uint16_t>(data[length - 2]) |
-          (static_cast<uint16_t>(data[length - 1]) << 8);
-      uint16_t computed_crc = modbus_crc16(data, length - 2);
-      if (received_crc != computed_crc) {
-        result.error_message = fmt::format(
-            "CRC mismatch on exception frame (received 0x{:04X}, computed "
-            "0x{:04X})",
-            received_crc, computed_crc);
-        return result;
-      }
-    }
-    uint8_t exception_code = (length >= 3) ? data[2] : 0;
+  // Identify frame type and validate length.
+  bool is_exception = (data[1] & 0x80) != 0;
+  size_t expected_length = modbus_expected_frame_length(data);
+
+  if (length < expected_length) {
+    result.error_message =
+        fmt::format("response truncated ({} bytes, expected {})", length,
+                    expected_length);
+    return result;
+  }
+
+  // Validate CRC.  For both exception and normal frames, CRC is computed
+  // over the payload bytes (everything before the trailing 2 CRC bytes)
+  // using the expected frame length (not the buffer length, which may
+  // include trailing bytes).
+  size_t payload_length = expected_length - 2;
+  uint16_t computed_crc = modbus_crc16(data, payload_length);
+  uint16_t received_crc =
+      static_cast<uint16_t>(data[payload_length]) |
+      (static_cast<uint16_t>(data[payload_length + 1]) << 8);
+
+  if (computed_crc != received_crc) {
+    result.error_message =
+        fmt::format("CRC mismatch (computed 0x{:04X}, received 0x{:04X})",
+                    computed_crc, received_crc);
+    return result;
+  }
+
+  // Handle exception frame (now CRC-validated).
+  if (is_exception) {
     result.error_message = fmt::format(
         "modbus exception: function 0x{:02X}, code 0x{:02X}", data[1],
-        exception_code);
+        data[2]);
     return result;
   }
 
@@ -90,30 +112,6 @@ modbus_response modbus_parse_holding_registers(const uint8_t *data,
   }
 
   uint8_t byte_count = data[2];
-
-  // The frame must contain addr(1) + func(1) + count(1) + data(byte_count)
-  // + CRC(2).
-  size_t expected_length =
-      static_cast<size_t>(3) + byte_count + 2;
-  if (length < expected_length) {
-    result.error_message =
-        fmt::format("response truncated ({} bytes, expected {})", length,
-                    expected_length);
-    return result;
-  }
-
-  // Verify CRC over the payload (everything except the trailing 2 CRC bytes).
-  size_t payload_length = expected_length - 2;
-  uint16_t computed_crc = modbus_crc16(data, payload_length);
-  uint16_t received_crc = static_cast<uint16_t>(data[payload_length]) |
-                          (static_cast<uint16_t>(data[payload_length + 1]) << 8);
-
-  if (computed_crc != received_crc) {
-    result.error_message =
-        fmt::format("CRC mismatch (computed 0x{:04X}, received 0x{:04X})",
-                    computed_crc, received_crc);
-    return result;
-  }
 
   // Byte count must be even (each register is 2 bytes).
   if (byte_count % 2 != 0) {
