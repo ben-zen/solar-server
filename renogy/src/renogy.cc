@@ -144,9 +144,7 @@ parse_controller_data(const std::vector<uint16_t> &regs) {
       static_cast<charging_state>(static_cast<uint8_t>(regs[32] & 0xFF));
 
   // Registers 0x121–0x122 – Fault codes (32 bits)
-  d.fault_codes = combine_registers(regs[33], regs[34]);
-
-  // Decode individual fault flags from the 32-bit fault code.
+  // Decode individual fault flags from the two fault registers.
   uint16_t lo = regs[34]; // low 16 bits
   uint16_t hi = regs[33]; // high 16 bits
   d.fault_battery_over_discharge   = (lo >> 0) & 1;
@@ -263,15 +261,14 @@ modbus_response renogy_controller::read_registers(uint16_t start_register,
   // character ≈ 1 ms, so a short sleep is sufficient.
   std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
-  // Phase 1: read the 3-byte header (addr, func, byte_count) to determine
+  // Phase 1: read the header (addr, func, byte_count) to determine
   // the frame type and expected total length.
-  constexpr size_t header_size = 3;
-  uint8_t header[header_size];
+  uint8_t header[modbus_header_length];
   size_t header_read = 0;
   int retries = 10;
-  while (header_read < header_size && retries-- > 0) {
+  while (header_read < modbus_header_length && retries-- > 0) {
     ssize_t n = m_port.read(header + header_read,
-                            header_size - header_read, 200);
+                            modbus_header_length - header_read, 200);
     if (n > 0) {
       header_read += static_cast<size_t>(n);
     } else if (n == 0) {
@@ -280,19 +277,17 @@ modbus_response renogy_controller::read_registers(uint16_t start_register,
       return modbus_response{{}, "serial read error (header)"};
     }
   }
-  if (header_read < header_size) {
+  if (header_read < modbus_header_length) {
     return modbus_response{{}, "timeout reading response header"};
   }
 
   // Phase 2: compute the expected total frame length from the header.
-  // Exception frames (func & 0x80) are 5 bytes; normal responses are
-  // 3 + byte_count + 2.
   size_t expected = modbus_expected_frame_length(header);
 
   std::vector<uint8_t> buffer(expected);
-  std::memcpy(buffer.data(), header, header_size);
+  std::memcpy(buffer.data(), header, modbus_header_length);
 
-  size_t total_read = header_size;
+  size_t total_read = modbus_header_length;
   retries = 10;
   while (total_read < expected && retries-- > 0) {
     ssize_t n = m_port.read(buffer.data() + total_read,
@@ -311,29 +306,39 @@ modbus_response renogy_controller::read_registers(uint16_t start_register,
 }
 
 template <typename T>
-static std::optional<T>
-read_and_parse(renogy_controller::register_reader_fn reader,
-               uint16_t start_register, uint16_t num_registers,
-               std::optional<T> (*parse_fn)(const std::vector<uint16_t> &)) {
-  auto resp = reader(start_register, num_registers);
+struct renogy_register_traits;
+
+template <>
+struct renogy_register_traits<controller_data> {
+  static constexpr uint16_t start_register = renogy_data_start_register;
+  static constexpr uint16_t num_registers = renogy_data_num_registers;
+  static constexpr auto parse = parse_controller_data;
+};
+
+template <>
+struct renogy_register_traits<controller_info> {
+  static constexpr uint16_t start_register = renogy_info_start_register;
+  static constexpr uint16_t num_registers = renogy_info_num_registers;
+  static constexpr auto parse = parse_controller_info;
+};
+
+template <typename T>
+std::optional<T> renogy_controller::read_and_parse() {
+  using traits = renogy_register_traits<T>;
+  auto resp = read_registers(traits::start_register, traits::num_registers);
   if (!resp.ok()) {
-    fmt::print(stderr, "read_registers(0x{:04X}, {}): {}\n", start_register,
-               num_registers, resp.error_message);
+    fmt::print(stderr, "read_registers(0x{:04X}, {}): {}\n",
+               traits::start_register, traits::num_registers,
+               resp.error_message);
     return std::nullopt;
   }
-  return parse_fn(resp.registers);
+  return traits::parse(resp.registers);
 }
 
 std::optional<controller_data> renogy_controller::read_data() {
-  return read_and_parse<controller_data>(
-      [this](uint16_t s, uint16_t n) { return read_registers(s, n); },
-      renogy_data_start_register, renogy_data_num_registers,
-      parse_controller_data);
+  return read_and_parse<controller_data>();
 }
 
 std::optional<controller_info> renogy_controller::read_info() {
-  return read_and_parse<controller_info>(
-      [this](uint16_t s, uint16_t n) { return read_registers(s, n); },
-      renogy_info_start_register, renogy_info_num_registers,
-      parse_controller_info);
+  return read_and_parse<controller_info>();
 }

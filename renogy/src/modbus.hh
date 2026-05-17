@@ -14,6 +14,32 @@ enum class modbus_function : uint8_t {
   read_holding_registers = 0x03,
 };
 
+// ---------------------------------------------------------------------------
+// Modbus frame constants
+// ---------------------------------------------------------------------------
+
+/// Bit mask applied to the function code byte indicating an exception response.
+constexpr uint8_t modbus_exception_mask = 0x80;
+
+/// Minimum valid Modbus RTU frame length (addr + func + 1 payload + 2 CRC).
+constexpr size_t modbus_min_frame_length = 5;
+
+/// Size of the CRC-16 trailer appended to every Modbus RTU frame.
+constexpr size_t modbus_crc_length = 2;
+
+/// Number of bytes in a Modbus RTU exception response frame.
+constexpr size_t modbus_exception_frame_length = 5;
+
+/// Size of the fixed header at the start of every Modbus response
+/// (device address, function code, and byte-count / exception-code).
+constexpr size_t modbus_header_length = 3;
+
+/// Returns true when \p function_code indicates a Modbus exception response
+/// (i.e. the high bit is set).
+constexpr bool modbus_is_exception(uint8_t function_code) {
+  return (function_code & modbus_exception_mask) != 0;
+}
+
 /// Compute the Modbus CRC-16 checksum over \p length bytes starting at
 /// \p data.
 uint16_t modbus_crc16(const uint8_t *data, size_t length);

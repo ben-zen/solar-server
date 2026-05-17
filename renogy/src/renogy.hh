@@ -8,7 +8,6 @@
 #pragma once
 
 #include <cstdint>
-#include <functional>
 #include <optional>
 #include <string>
 #include <vector>
@@ -125,9 +124,8 @@ struct controller_data {
   // --- Status ---
   uint8_t load_status;              // 0x120  high byte
   charging_state charge_state;      // 0x120  low byte
-  uint32_t fault_codes;             // 0x121–0x122 (raw bitfield)
 
-  // --- Decoded fault flags (from fault_codes) ---
+  // --- Decoded fault flags (from registers 0x121–0x122) ---
   // Low 16 bits (register 0x122)
   bool fault_battery_over_discharge;       // B0
   bool fault_battery_overvoltage;          // B1
@@ -240,10 +238,11 @@ class renogy_controller {
   modbus_response read_registers(uint16_t start_register,
                                  uint16_t num_registers);
 
+  /// Read registers and parse them into a typed result.  The register
+  /// address and count are derived from renogy_register_traits<T>.
+  template <typename T> std::optional<T> read_and_parse();
+
 public:
-  /// Callable type used internally for read_registers dispatch.
-  using register_reader_fn =
-      std::function<modbus_response(uint16_t, uint16_t)>;
   /// Construct a controller handle that will talk to \p device at
   /// \p baud_rate (default 9600), with Modbus device address \p device_addr
   /// (default 1).

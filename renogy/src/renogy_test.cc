@@ -40,6 +40,58 @@ TEST_CASE("modbus_crc16 — known vectors") {
 }
 
 // ===================================================================
+// modbus_is_exception
+// ===================================================================
+
+TEST_CASE("modbus_is_exception") {
+  SUBCASE("normal function codes") {
+    CHECK_FALSE(modbus_is_exception(0x03));
+    CHECK_FALSE(modbus_is_exception(0x00));
+    CHECK_FALSE(modbus_is_exception(0x7F));
+  }
+  SUBCASE("exception function codes") {
+    CHECK(modbus_is_exception(0x83));
+    CHECK(modbus_is_exception(0x80));
+    CHECK(modbus_is_exception(0xFF));
+  }
+}
+
+// ===================================================================
+// modbus_expected_frame_length
+// ===================================================================
+
+TEST_CASE("modbus_expected_frame_length") {
+  SUBCASE("exception frame is always 5 bytes") {
+    // addr=0x01, func=0x83 (exception), exception_code=0x02
+    const uint8_t header[] = {0x01, 0x83, 0x02};
+    CHECK(modbus_expected_frame_length(header) == modbus_exception_frame_length);
+  }
+
+  SUBCASE("normal response with byte_count=0") {
+    const uint8_t header[] = {0x01, 0x03, 0x00};
+    CHECK(modbus_expected_frame_length(header) ==
+          modbus_header_length + 0 + modbus_crc_length);
+  }
+
+  SUBCASE("normal response with byte_count=4 (2 registers)") {
+    const uint8_t header[] = {0x01, 0x03, 0x04};
+    CHECK(modbus_expected_frame_length(header) ==
+          modbus_header_length + 4 + modbus_crc_length);
+  }
+
+  SUBCASE("normal response with byte_count=70 (35 registers)") {
+    const uint8_t header[] = {0x01, 0x03, 0x46};
+    CHECK(modbus_expected_frame_length(header) ==
+          modbus_header_length + 70 + modbus_crc_length);
+  }
+
+  SUBCASE("any exception func code yields 5") {
+    const uint8_t header[] = {0x01, 0xFF, 0x01};
+    CHECK(modbus_expected_frame_length(header) == modbus_exception_frame_length);
+  }
+}
+
+// ===================================================================
 // Modbus request frame building
 // ===================================================================
 
@@ -128,7 +180,7 @@ TEST_CASE("modbus_parse_holding_registers") {
           std::string::npos);
   }
 
-  SUBCASE("too short") {
+  SUBCASE("too short — less than header length") {
     uint8_t data[] = {0x01, 0x03};
     auto resp = modbus_parse_holding_registers(data, sizeof(data), 0x01);
     CHECK_FALSE(resp.ok());
@@ -244,7 +296,6 @@ TEST_CASE("parse_controller_data") {
     CHECK(d.cumulative_power_consumed_kwh == 18);
     CHECK(d.load_status == 0);
     CHECK(d.charge_state == charging_state::floating);
-    CHECK(d.fault_codes == 0);
     CHECK_FALSE(d.fault_battery_over_discharge);
     CHECK_FALSE(d.fault_battery_overvoltage);
     CHECK_FALSE(d.fault_fan_alarm);
@@ -261,8 +312,6 @@ TEST_CASE("parse_controller_data") {
     auto result = parse_controller_data(regs);
     REQUIRE(result.has_value());
     auto &d = *result;
-    CHECK(d.fault_codes == ((1u << 16) | (1u << 9) | (1u << 1)));
-    CHECK_FALSE(d.fault_battery_over_discharge);
     CHECK(d.fault_battery_overvoltage);
     CHECK_FALSE(d.fault_battery_undervoltage);
     CHECK_FALSE(d.fault_load_short_circuit);

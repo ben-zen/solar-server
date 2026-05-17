@@ -40,11 +40,11 @@ std::vector<uint8_t> modbus_read_holding_registers_request(
 size_t modbus_expected_frame_length(const uint8_t *header) {
   // header must point to at least 3 bytes: addr, func, byte_count.
   // Exception frames (func & 0x80): fixed 5 bytes total.
-  if (header[1] & 0x80) {
-    return 5;
+  if (modbus_is_exception(header[1])) {
+    return modbus_exception_frame_length;
   }
   // Normal response: addr(1) + func(1) + count(1) + data(byte_count) + CRC(2).
-  return static_cast<size_t>(3) + header[2] + 2;
+  return modbus_header_length + header[2] + modbus_crc_length;
 }
 
 modbus_response modbus_parse_holding_registers(const uint8_t *data,
@@ -52,10 +52,11 @@ modbus_response modbus_parse_holding_registers(const uint8_t *data,
                                                uint8_t expected_addr) {
   modbus_response result;
 
-  // Minimum frame: addr(1) + func(1) + byte_count(1) + CRC(2) = 5 bytes.
-  if (length < 5) {
+  // Need at least the header to determine frame type.
+  if (length < modbus_header_length) {
     result.error_message =
-        fmt::format("response too short ({} bytes, minimum 5)", length);
+        fmt::format("response too short ({} bytes, minimum {})", length,
+                    modbus_header_length);
     return result;
   }
 
@@ -68,7 +69,7 @@ modbus_response modbus_parse_holding_registers(const uint8_t *data,
   }
 
   // Identify frame type and validate length.
-  bool is_exception = (data[1] & 0x80) != 0;
+  bool is_exception = modbus_is_exception(data[1]);
   size_t expected_length = modbus_expected_frame_length(data);
 
   if (length < expected_length) {
@@ -82,7 +83,7 @@ modbus_response modbus_parse_holding_registers(const uint8_t *data,
   // over the payload bytes (everything before the trailing 2 CRC bytes)
   // using the expected frame length (not the buffer length, which may
   // include trailing bytes).
-  size_t payload_length = expected_length - 2;
+  size_t payload_length = expected_length - modbus_crc_length;
   uint16_t computed_crc = modbus_crc16(data, payload_length);
   uint16_t received_crc =
       static_cast<uint16_t>(data[payload_length]) |
@@ -123,8 +124,8 @@ modbus_response modbus_parse_holding_registers(const uint8_t *data,
   size_t num_registers = byte_count / 2;
   result.registers.reserve(num_registers);
   for (size_t i = 0; i < num_registers; ++i) {
-    uint16_t hi = data[3 + i * 2];
-    uint16_t lo = data[3 + i * 2 + 1];
+    uint16_t hi = data[modbus_header_length + i * 2];
+    uint16_t lo = data[modbus_header_length + i * 2 + 1];
     result.registers.push_back(static_cast<uint16_t>((hi << 8) | lo));
   }
 
