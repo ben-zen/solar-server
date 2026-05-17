@@ -58,9 +58,16 @@ bool serial_port::open(const std::string &device, int baud_rate) {
   }
 
   // Clear non-blocking now that we have the fd; we use poll() for timeouts.
+  // If either fcntl call fails, the FD may remain O_NONBLOCK which would
+  // cause read()/write() to intermittently fail with EAGAIN.
   int flags = fcntl(m_fd, F_GETFL, 0);
-  if (flags >= 0) {
-    fcntl(m_fd, F_SETFL, flags & ~O_NONBLOCK);
+  if (flags < 0) {
+    close();
+    return false;
+  }
+  if (fcntl(m_fd, F_SETFL, flags & ~O_NONBLOCK) < 0) {
+    close();
+    return false;
   }
 
   struct termios tio {};
