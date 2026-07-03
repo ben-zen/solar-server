@@ -243,9 +243,9 @@ class renogy_controller {
   template <typename T> std::optional<T> read_and_parse();
 
 public:
-  /// Construct a controller handle that will talk to \p device at
-  /// \p baud_rate (default 9600), with Modbus device address \p device_addr
-  /// (default 1).
+  /// Construct a controller handle for Modbus device address
+  /// \p device_addr (default 1).  Call open(\p device, \p baud_rate)
+  /// separately to configure and open the serial port.
   explicit renogy_controller(uint8_t device_addr = 1);
 
   /// Open the serial port.  Returns true on success.
