@@ -8,9 +8,7 @@
 #include "renogy.hh"
 
 #include <algorithm>
-#include <chrono>
 #include <cstring>
-#include <thread>
 
 #include <fmt/format.h>
 
@@ -256,10 +254,8 @@ modbus_response renogy_controller::read_registers(uint16_t start_register,
     return modbus_response{{}, "failed to write request to serial port"};
   }
 
-  // Allow time for the controller to process and respond.  Modbus RTU
-  // specifies a 3.5-character silence between frames; at 9600 baud one
-  // character ≈ 1 ms, so a short sleep is sufficient.
-  std::this_thread::sleep_for(std::chrono::milliseconds(50));
+  // Modbus RTU requires a 3.5-character pause between frames; the
+  // serial read loop handles the inter-frame timing without a fixed sleep.
 
   // Phase 1: read the header (addr, func, byte_count) to determine
   // the frame type and expected total length.
