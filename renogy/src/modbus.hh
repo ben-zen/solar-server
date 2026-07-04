@@ -1,0 +1,75 @@
+// Copyright (C) Ben Lewis, 2026.
+// SPDX-License-Identifier: MIT
+
+#pragma once
+
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <vector>
+
+/// Modbus RTU function codes used by Renogy controllers.
+enum class modbus_function : uint8_t {
+  read_holding_registers = 0x03,
+};
+
+// ---------------------------------------------------------------------------
+// Modbus frame constants
+// ---------------------------------------------------------------------------
+
+/// Bit mask applied to the function code byte indicating an exception response.
+constexpr uint8_t modbus_exception_mask = 0x80;
+
+/// Minimum valid Modbus RTU frame length (addr + func + 1 payload + 2 CRC).
+constexpr size_t modbus_min_frame_length = 5;
+
+/// Size of the CRC-16 trailer appended to every Modbus RTU frame.
+constexpr size_t modbus_crc_length = 2;
+
+/// Number of bytes in a Modbus RTU exception response frame.
+constexpr size_t modbus_exception_frame_length = 5;
+
+/// Size of the fixed header at the start of every Modbus response
+/// (device address, function code, and byte-count / exception-code).
+constexpr size_t modbus_header_length = 3;
+
+/// Returns true when \p function_code indicates a Modbus exception response
+/// (i.e. the high bit is set).
+constexpr bool modbus_is_exception(uint8_t function_code) {
+  return (function_code & modbus_exception_mask) != 0;
+}
+
+/// Compute the Modbus CRC-16 checksum over \p length bytes starting at
+/// \p data.
+uint16_t modbus_crc16(const uint8_t *data, size_t length);
+
+/// Build a Modbus RTU "Read Holding Registers" (0x03) request frame
+/// addressed to \p device_addr, starting at \p start_register and reading
+/// \p num_registers consecutive registers.
+std::vector<uint8_t> modbus_read_holding_registers_request(
+    uint8_t device_addr, uint16_t start_register, uint16_t num_registers);
+
+/// The result of parsing a Modbus RTU response frame.  On success the
+/// \c registers vector holds the decoded 16-bit register values.  On failure
+/// \c error_message describes what went wrong.
+struct modbus_response {
+  std::vector<uint16_t> registers;
+  std::string error_message;
+
+  [[nodiscard]] bool ok() const { return error_message.empty(); }
+};
+
+/// Determine the expected total frame length from the first 3 bytes of a
+/// Modbus RTU response.  \p header must point to at least 3 bytes
+/// (addr, func, byte_count/exception_code).  Exception frames (func & 0x80)
+/// are always 5 bytes; normal Read Holding Registers responses are
+/// 3 + byte_count + 2.
+size_t modbus_expected_frame_length(const uint8_t *header);
+
+/// Parse a Modbus RTU response to a "Read Holding Registers" request.
+/// \p data / \p length is the raw byte buffer read from the serial port.
+/// \p expected_addr is the device address we expect to see in the frame.
+modbus_response modbus_parse_holding_registers(const uint8_t *data,
+                                               size_t length,
+                                               uint8_t expected_addr);

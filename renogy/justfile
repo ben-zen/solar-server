@@ -1,0 +1,20 @@
+set dotenv-load := false
+
+# Default recipe: build the renogy library
+default: build
+
+# Configure the Meson build directory
+setup:
+    CC=clang CXX=clang++ meson setup --reconfigure build src || CC=clang CXX=clang++ meson setup build src
+
+# Build the renogy library and tests
+build: setup
+    meson compile -C build
+
+# Run renogy tests
+test: build
+    meson test -C build -v
+
+# Remove build artifacts
+clean:
+    rm -rf build

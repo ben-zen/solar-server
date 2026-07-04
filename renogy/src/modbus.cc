@@ -1,0 +1,133 @@
+// Copyright (C) Ben Lewis, 2026.
+// SPDX-License-Identifier: MIT
+
+#include "modbus.hh"
+
+#include <fmt/format.h>
+
+// Standard Modbus CRC-16 (polynomial 0xA001, initial value 0xFFFF).
+uint16_t modbus_crc16(const uint8_t *data, size_t length) {
+  uint16_t crc = 0xFFFF;
+  for (size_t i = 0; i < length; ++i) {
+    crc ^= static_cast<uint16_t>(data[i]);
+    for (int bit = 0; bit < 8; ++bit) {
+      if (crc & 0x0001) {
+        crc = (crc >> 1) ^ 0xA001;
+      } else {
+        crc >>= 1;
+      }
+    }
+  }
+  return crc;
+}
+
+std::vector<uint8_t> modbus_read_holding_registers_request(
+    uint8_t device_addr, uint16_t start_register, uint16_t num_registers) {
+  std::vector<uint8_t> frame(8);
+  frame[0] = device_addr;
+  frame[1] = static_cast<uint8_t>(modbus_function::read_holding_registers);
+  frame[2] = static_cast<uint8_t>(start_register >> 8);
+  frame[3] = static_cast<uint8_t>(start_register & 0xFF);
+  frame[4] = static_cast<uint8_t>(num_registers >> 8);
+  frame[5] = static_cast<uint8_t>(num_registers & 0xFF);
+
+  uint16_t crc = modbus_crc16(frame.data(), 6);
+  frame[6] = static_cast<uint8_t>(crc & 0xFF);        // CRC low byte
+  frame[7] = static_cast<uint8_t>((crc >> 8) & 0xFF); // CRC high byte
+  return frame;
+}
+
+size_t modbus_expected_frame_length(const uint8_t *header) {
+  // header must point to at least 3 bytes: addr, func, byte_count.
+  // Exception frames (func & 0x80): fixed 5 bytes total.
+  if (modbus_is_exception(header[1])) {
+    return modbus_exception_frame_length;
+  }
+  // Normal response: addr(1) + func(1) + count(1) + data(byte_count) + CRC(2).
+  return modbus_header_length + header[2] + modbus_crc_length;
+}
+
+modbus_response modbus_parse_holding_registers(const uint8_t *data,
+                                               size_t length,
+                                               uint8_t expected_addr) {
+  modbus_response result;
+
+  // Need at least the header to determine frame type.
+  if (length < modbus_header_length) {
+    result.error_message =
+        fmt::format("response too short ({} bytes, minimum {})", length,
+                    modbus_header_length);
+    return result;
+  }
+
+  // Check device address.
+  if (data[0] != expected_addr) {
+    result.error_message = fmt::format(
+        "unexpected device address 0x{:02X} (expected 0x{:02X})", data[0],
+        expected_addr);
+    return result;
+  }
+
+  // Identify frame type and validate length.
+  bool is_exception = modbus_is_exception(data[1]);
+  size_t expected_length = modbus_expected_frame_length(data);
+
+  if (length < expected_length) {
+    result.error_message =
+        fmt::format("response truncated ({} bytes, expected {})", length,
+                    expected_length);
+    return result;
+  }
+
+  // Validate CRC.  For both exception and normal frames, CRC is computed
+  // over the payload bytes (everything before the trailing 2 CRC bytes)
+  // using the expected frame length (not the buffer length, which may
+  // include trailing bytes).
+  size_t payload_length = expected_length - modbus_crc_length;
+  uint16_t computed_crc = modbus_crc16(data, payload_length);
+  uint16_t received_crc =
+      static_cast<uint16_t>(data[payload_length]) |
+      (static_cast<uint16_t>(data[payload_length + 1]) << 8);
+
+  if (computed_crc != received_crc) {
+    result.error_message =
+        fmt::format("CRC mismatch (computed 0x{:04X}, received 0x{:04X})",
+                    computed_crc, received_crc);
+    return result;
+  }
+
+  // Handle exception frame (now CRC-validated).
+  if (is_exception) {
+    result.error_message = fmt::format(
+        "modbus exception: function 0x{:02X}, code 0x{:02X}", data[1],
+        data[2]);
+    return result;
+  }
+
+  // Verify function code.
+  if (data[1] !=
+      static_cast<uint8_t>(modbus_function::read_holding_registers)) {
+    result.error_message = fmt::format(
+        "unexpected function code 0x{:02X} (expected 0x03)", data[1]);
+    return result;
+  }
+
+  uint8_t byte_count = data[2];
+
+  // Byte count must be even (each register is 2 bytes).
+  if (byte_count % 2 != 0) {
+    result.error_message =
+        fmt::format("odd byte count {} in register response", byte_count);
+    return result;
+  }
+
+  size_t num_registers = byte_count / 2;
+  result.registers.reserve(num_registers);
+  for (size_t i = 0; i < num_registers; ++i) {
+    uint16_t hi = data[modbus_header_length + i * 2];
+    uint16_t lo = data[modbus_header_length + i * 2 + 1];
+    result.registers.push_back(static_cast<uint16_t>((hi << 8) | lo));
+  }
+
+  return result;
+}

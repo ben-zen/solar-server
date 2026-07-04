@@ -1,6 +1,7 @@
 # Build artifacts
 logger/build/
 guestbook/build/
+renogy/build/
 shell/build/
 
 # Hugo generated files
