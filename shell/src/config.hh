@@ -79,6 +79,13 @@ inline shell_config parse_config_stream(std::istream &input) {
             }
             catch (...) { /* keep default */ }
         }
+        else if (key == "height") {
+            try {
+                auto parsed = std::stoi(value);
+                if (parsed >= 0) config.height = parsed;
+            }
+            catch (...) { /* keep default */ }
+        }
     }
 
     return config;

@@ -20,10 +20,12 @@ struct guestbook_entry {
 // Response states returned by renderer::prompt().
 struct prompt_eof {};        // Clean end-of-input (e.g., Ctrl-D).
 struct prompt_disconnect {}; // I/O error or broken connection.
+struct prompt_interrupt {};  // Signal interrupt (e.g., Ctrl-C / SIGINT).
 
 // The result of a prompt operation: either the user's input string or a
 // terminal state indicating that the session has ended.
-using prompt_result = std::variant<std::string, prompt_eof, prompt_disconnect>;
+using prompt_result = std::variant<std::string, prompt_eof, prompt_disconnect,
+                                   prompt_interrupt>;
 
 // Abstract renderer interface.
 //

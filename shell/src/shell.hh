@@ -35,6 +35,9 @@ struct shell_config {
 
     // Default terminal width for formatting (0 = auto-detect).
     int width = 0;
+
+    // Default terminal height for layout (0 = auto-detect).
+    int height = 0;
 };
 
 // The main BBS shell.
