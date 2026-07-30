@@ -39,29 +39,16 @@ temperature read_temperature_from_json(json &data) {
     return {value, unit};
 }
 
-std::string get_observation_url()
+std::string make_observation_url(const nws_location &location)
 {
-    // For testing I'm using the location of the space needle.
-    // For realsies I want to first get the location using a call the points endpoint:
-    // https://api.weather.gov/points/47.620422,-122.349358
-    //
-    // This will involve either attaching a GPS module (sure) or some other means of
-    // updating location.
-
-    return "https://api.weather.gov/stations/KBFI/observations/latest";
-
+    return fmt::format("https://api.weather.gov/stations/{}/observations/latest",
+                       location.station);
 }
 
-std::string get_forecast_url()
+std::string make_forecast_url(const nws_location &location)
 {
-    // For testing I'm using the location of the space needle.
-    // For realsies I want to first get the location using a call the points endpoint:
-    // https://api.weather.gov/points/47.620422,-122.349358
-    //
-    // This will involve either attaching a GPS module (sure) or some other means of
-    // updating location.
-
-    return "https://api.weather.gov/gridpoints/SEW/124,69/forecast";
+    return fmt::format("https://api.weather.gov/gridpoints/{}/{},{}/forecast",
+                       location.grid_office, location.grid_x, location.grid_y);
 }
 
 
@@ -179,8 +166,8 @@ CURLcode weather_loader::nws_api_call(std::string &url_str, std::string *buffer)
     return res;
 }
 
-weather_loader::weather_loader(curl_handle &curl) : m_curl(curl) {
-    // Also needs the location of the station.
+weather_loader::weather_loader(curl_handle &curl, const nws_location &location)
+    : m_curl(curl), m_location(location) {
     curl_easy_setopt(m_curl, CURLOPT_USERAGENT, "solar-website vNone, https://ben.zen.sdf.org");
     curl_easy_setopt(m_curl, CURLOPT_ACCEPT_ENCODING, "application/geo+json");
     curl_easy_setopt(m_curl,
@@ -191,7 +178,7 @@ weather_loader::weather_loader(curl_handle &curl) : m_curl(curl) {
 daytime_forecast weather_loader::get_current_observation() {
     CURLcode res;
     std::string observation_str{};
-    auto observation_url = get_observation_url();
+    auto observation_url = make_observation_url(m_location);
     res = nws_api_call(observation_url, &observation_str);
     if (res != CURLE_OK)
     {
@@ -219,7 +206,7 @@ daytime_forecast weather_loader::get_current_observation() {
 std::vector<daytime_forecast> weather_loader::get_forecast() {
     CURLcode res;
     std::string forecast_str{};
-    auto forecast_url = get_forecast_url();
+    auto forecast_url = make_forecast_url(m_location);
     res = nws_api_call(forecast_url, &forecast_str);
     if (res != CURLE_OK)
     {
